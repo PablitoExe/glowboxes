@@ -1,0 +1,286 @@
+﻿<!DOCTYPE html>   
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Glow Boxes</title>
+
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <link href="https://fonts.cdnfonts.com/css/mona-sans" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@700&display=swap" rel="stylesheet">
+
+  <!-- ICONOS -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="is-preloading">
+
+<div class="preloader" id="preloader" aria-hidden="true">
+  <div class="preloader-inner">
+    <div class="preloader-logo-wrap">
+      <img src="assets/img/logo.png" alt="Glow Boxes" class="preloader-logo">
+      <span class="preloader-glow"></span>
+    </div>
+    <div class="preloader-loader">
+      <span class="preloader-bar"></span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+<nav class="navbar">
+
+  <!-- LOGO -->
+  <div class="logo">
+    <a href="#inicio" aria-label="Volver al inicio">
+      <img src="assets/img/logo.png" alt="Glow Boxes">
+    </a>
+  </div>
+
+  <!-- MENU -->
+  <div class="nav-center">
+    <div class="nav">
+      <div class="pill"></div>
+
+      <a class="active" data-show-all-products>PRODUCTOS</a>
+      <div class="nav-item has-dropdown">
+        <a id="brandsNavLink">MARCAS</a>
+        <div class="nav-dropdown" id="brandsDropdown">
+          <a data-brand-filter="Glow Boxes">GLOW BOXES</a>
+          <a data-brand-filter="Drop">DROP</a>
+          <a data-brand-filter="Toxic Shine">TOXIC SHINE</a>
+          <a data-brand-filter="Bully Industry">BULLY INDUSTRY</a>
+          <a data-brand-filter="Gloss Lab">GLOSS LAB</a>
+        </div>
+      </div>
+      <a>CATEGORIAS</a>
+      <a>QUIENES SOMOS</a>
+      <a>CONTACTO</a>
+    </div>
+  </div>
+
+  <!-- ICONOS -->
+  <div class="icons">
+
+    <!-- 🔍 BUSCADOR -->
+    <div class="search-box" id="searchBox">
+      <i data-lucide="search"></i>
+      <input type="text" id="searchInput" placeholder="Buscar productos...">
+    </div>
+
+    <!-- ❤️ -->
+    <div class="icon wishlist-icon" id="wishlistIcon">
+      <i data-lucide="heart"></i>
+      <span class="dot" id="wishlistCount">0</span>
+    </div>
+
+    <!-- 🛒 -->
+    <div class="icon cart" id="cartIcon">
+      <i data-lucide="shopping-bag"></i>
+      <span class="dot" id="cartCount">0</span>
+    </div>
+
+    <a class="login-button" href="auth.html">
+      <i data-lucide="user"></i>
+      <span>LOGIN</span>
+    </a>
+
+  </div>
+
+</nav>
+
+<!-- 🛒 CARRITO -->
+<div class="cart-dropdown" id="cartDropdown">
+
+  <div class="cart-header">
+    <span>Carrito</span>
+  </div>
+
+  <div class="cart-items" id="cartItems">
+    <p class="empty">Tu carrito está vacío</p>
+  </div>
+
+  <div class="cart-footer">
+    <span>Total: $<span id="cartTotal">0</span></span>
+    <button class="checkout order-button" id="checkoutOrder" type="button">
+      <span class="default">Finalizar compra</span>
+      <span class="success">
+        Pedido listo
+        <svg viewBox="0 0 12 10">
+          <polyline points="1.5 6 4.5 9 10.5 1"></polyline>
+        </svg>
+      </span>
+      <div class="box"></div>
+      <div class="truck">
+        <div class="back"></div>
+        <div class="front">
+          <div class="window"></div>
+        </div>
+        <div class="light top"></div>
+        <div class="light bottom"></div>
+      </div>
+      <div class="lines"></div>
+    </button>
+  </div>
+
+</div>
+
+<!-- HERO -->
+<section class="hero" id="inicio">
+
+  <div class="hero-left">
+    <span class="tag" id="tag">LIMPIADOR</span>
+
+    <div class="title-window">
+      <h1 id="title">
+        Cleaner<br>
+        <span>Strong 600ML</span>
+      </h1>
+    </div>
+
+    <p id="desc">
+      Limpiador multipropósito de baja dilución.
+    </p>
+
+    <div class="hero-actions">
+      <button class="btn" id="addToCart">
+        COMPRAR AHORA <span>→</span>
+      </button>
+
+      <div class="price-row">
+        <span class="price" id="price">$11.999</span>
+        <button class="wishlist-add" id="addToWishlist" type="button" aria-label="Agregar a lista de deseos">
+          <i data-lucide="heart"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="social-links" aria-label="Redes sociales">
+      <a href="#" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="5"></rect>
+          <circle cx="12" cy="12" r="4"></circle>
+          <circle cx="17.5" cy="6.5" r="1.2"></circle>
+        </svg>
+      </a>
+      <a href="#" aria-label="WhatsApp">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11.7a8 8 0 0 1-11.8 7l-4.2 1.1 1.1-4.1A8 8 0 1 1 20 11.7Z"></path>
+          <path d="M9.3 8.4c.2-.5.4-.5.7-.5h.5c.2 0 .4.1.5.4l.7 1.6c.1.3.1.5-.1.7l-.4.5c-.1.1-.1.3 0 .4.4.8 1.1 1.5 1.9 1.9.2.1.3.1.5 0l.6-.5c.2-.2.4-.2.7-.1l1.5.7c.3.1.4.3.4.6 0 .7-.5 1.4-1.2 1.5-1 .2-2.7-.2-4.5-2-1.8-1.8-2.4-3.6-2.2-4.4Z"></path>
+        </svg>
+      </a>
+      <a href="#" aria-label="TikTok">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 4v10.2a4.2 4.2 0 1 1-4.2-4.2c.4 0 .8.1 1.2.2v3a1.7 1.7 0 1 0 1.1 1.6V4h1.9Z"></path>
+          <path d="M14 4c.4 2.6 2 4.4 4.7 4.8v2.8c-1.8-.1-3.4-.8-4.7-1.9"></path>
+        </svg>
+      </a>
+      <a href="#" aria-label="YouTube">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="6.5" width="18" height="11" rx="3"></rect>
+          <path d="m10.5 9.5 4.5 2.5-4.5 2.5Z"></path>
+        </svg>
+      </a>
+    </div>
+
+  </div>
+
+  <div class="hero-right">
+    <div class="glow"></div>
+
+    <div class="product-stage" id="productStage">
+      <img id="productImg" class="product-img product-img-main" src="assets/img/producto3.png" alt="Producto seleccionado">
+      <img id="previewImg" class="product-img product-img-preview" src="assets/img/producto1.png" alt="Siguiente producto">
+      <img id="nextPreviewImg" class="product-img product-img-next-preview" src="assets/img/producto2.png" alt="Producto siguiente">
+    </div>
+
+    <div class="slider-controls">
+      <button id="prev">←</button>
+      <button id="next">→</button>
+    </div>
+
+    <div class="slider-count">
+      <span id="current">01</span> / <span id="total">03</span>
+    </div>
+
+  </div>
+
+</section>
+
+</div>
+
+<section class="brands">
+
+  <div class="brands-track">
+
+    <!-- BLOQUE 1 -->
+    <div class="brands-group">
+      <img src="assets/img/marca1.png" alt="Marca 1">
+      <img src="assets/img/marca2.png" alt="Marca 2">
+      <img src="assets/img/marca3.png" alt="Marca 3">
+      <img src="assets/img/marca4.png" alt="Marca 4">
+      <img src="assets/img/marca5.png" alt="Marca 5">
+      <img src="assets/img/marca6.png" alt="Marca 6">
+      <img src="assets/img/marca7.png" alt="Marca 7">
+      <img src="assets/img/marca8.png" alt="Marca 8">
+      <img src="assets/img/marca9.png" alt="Marca 9">
+      <img src="assets/img/marca10.png" alt="Marca 10">
+    </div>
+
+    <!-- BLOQUE 2 (CLON EXACTO) -->
+    <div class="brands-group">
+      <img src="assets/img/marca1.png" alt="Marca 1">
+      <img src="assets/img/marca2.png" alt="Marca 2">
+      <img src="assets/img/marca3.png" alt="Marca 3">
+      <img src="assets/img/marca4.png" alt="Marca 4">
+      <img src="assets/img/marca5.png" alt="Marca 5">
+      <img src="assets/img/marca6.png" alt="Marca 6">
+      <img src="assets/img/marca7.png" alt="Marca 7">
+      <img src="assets/img/marca8.png" alt="Marca 8">
+      <img src="assets/img/marca9.png" alt="Marca 9">
+      <img src="assets/img/marca10.png" alt="Marca 10">
+    </div>
+
+    <!-- BLOQUE 3 -->
+    <div class="brands-group">
+      <img src="assets/img/marca1.png" alt="Marca 1">
+      <img src="assets/img/marca2.png" alt="Marca 2">
+      <img src="assets/img/marca3.png" alt="Marca 3">
+      <img src="assets/img/marca4.png" alt="Marca 4">
+      <img src="assets/img/marca5.png" alt="Marca 5">
+      <img src="assets/img/marca6.png" alt="Marca 6">
+      <img src="assets/img/marca7.png" alt="Marca 7">
+      <img src="assets/img/marca8.png" alt="Marca 8">
+      <img src="assets/img/marca9.png" alt="Marca 9">
+      <img src="assets/img/marca10.png" alt="Marca 10">
+    </div>
+
+    <!-- BLOQUE 4 (CLON EXACTO) -->
+    <div class="brands-group">
+      <img src="assets/img/marca1.png" alt="Marca 1">
+      <img src="assets/img/marca2.png" alt="Marca 2">
+      <img src="assets/img/marca3.png" alt="Marca 3">
+      <img src="assets/img/marca4.png" alt="Marca 4">
+      <img src="assets/img/marca5.png" alt="Marca 5">
+      <img src="assets/img/marca6.png" alt="Marca 6">
+      <img src="assets/img/marca7.png" alt="Marca 7">
+      <img src="assets/img/marca8.png" alt="Marca 8">
+      <img src="assets/img/marca9.png" alt="Marca 9">
+      <img src="assets/img/marca10.png" alt="Marca 10">
+    </div>
+
+  </div>
+
+</section>
+
+<script src="assets/js/supabase-config.js"></script>
+<script src="assets/js/supabase-api.js"></script>
+<script src="assets/js/script.js" defer></script>
+
+</body>
+</html>

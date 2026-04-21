@@ -1,0 +1,71 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glow Boxes | Login</title>
+  <link rel="stylesheet" href="assets/css/auth.css">
+  <link href="https://fonts.cdnfonts.com/css/mona-sans" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <main class="auth-page">
+    <a class="auth-logo" href="index.html" aria-label="Volver al inicio">
+      <img src="assets/img/logo.png" alt="Glow Boxes">
+    </a>
+
+    <section class="auth-card">
+      <div class="auth-heading">
+        <span>Cuenta Glow Boxes</span>
+        <h1>Bienvenido</h1>
+        <p>Inicia sesion o crea tu cuenta para entrar al dashboard.</p>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="active" type="button" data-auth-tab="login">Login</button>
+        <button type="button" data-auth-tab="register">Registro</button>
+      </div>
+
+      <form class="auth-form active" id="loginForm">
+        <label>
+          Email
+          <input type="email" name="email" placeholder="tu@email.com" required>
+        </label>
+
+        <label>
+          Contraseña
+          <input type="password" name="password" placeholder="Tu contraseña" minlength="6" required>
+        </label>
+
+        <button type="submit">Ingresar</button>
+      </form>
+
+      <form class="auth-form" id="registerForm">
+        <label>
+          Nombre
+          <input type="text" name="full_name" placeholder="Tu nombre" required>
+        </label>
+
+        <label>
+          Email
+          <input type="email" name="email" placeholder="tu@email.com" required>
+        </label>
+
+        <label>
+          Contraseña
+          <input type="password" name="password" placeholder="Minimo 6 caracteres" minlength="6" required>
+        </label>
+
+        <button type="submit">Crear cuenta</button>
+      </form>
+
+      <p class="auth-message" id="authMessage" role="status"></p>
+    </section>
+  </main>
+
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/supabase-api.js"></script>
+  <script src="assets/js/auth.js"></script>
+</body>
+</html>
