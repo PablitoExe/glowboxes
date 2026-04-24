@@ -42,6 +42,12 @@ create table if not exists public.products (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.product_financials (
+  product_id uuid primary key references public.products(id) on delete cascade,
+  cost_price numeric(12, 2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
 alter table public.products
 add column if not exists gradient_start text not null default '#ff2da0';
 
@@ -55,6 +61,18 @@ create table if not exists public.branches (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   address text,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.staff_members (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text,
+  phone text,
+  role text not null default 'empleado' check (role in ('empleado', 'delivery', 'cajero', 'encargado', 'administracion')),
+  zone text,
+  notes text,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -109,7 +127,9 @@ alter table public.profiles enable row level security;
 alter table public.brands enable row level security;
 alter table public.categories enable row level security;
 alter table public.products enable row level security;
+alter table public.product_financials enable row level security;
 alter table public.branches enable row level security;
+alter table public.staff_members enable row level security;
 alter table public.cart_items enable row level security;
 alter table public.wishlist_items enable row level security;
 alter table public.orders enable row level security;
@@ -227,6 +247,53 @@ create policy "Dashboard can delete products"
 on public.products for delete
 using (public.is_admin());
 
+drop policy if exists "Dashboard can read product financials" on public.product_financials;
+create policy "Dashboard can read product financials"
+on public.product_financials for select
+using (public.is_admin());
+
+drop policy if exists "Dashboard can insert product financials" on public.product_financials;
+create policy "Dashboard can insert product financials"
+on public.product_financials for insert
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can update product financials" on public.product_financials;
+create policy "Dashboard can update product financials"
+on public.product_financials for update
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can delete product financials" on public.product_financials;
+create policy "Dashboard can delete product financials"
+on public.product_financials for delete
+using (public.is_admin());
+
+drop policy if exists "Dashboard can read staff members" on public.staff_members;
+create policy "Dashboard can read staff members"
+on public.staff_members for select
+using (public.is_admin());
+
+drop policy if exists "Dashboard can insert staff members" on public.staff_members;
+create policy "Dashboard can insert staff members"
+on public.staff_members for insert
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can update staff members" on public.staff_members;
+create policy "Dashboard can update staff members"
+on public.staff_members for update
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can delete staff members" on public.staff_members;
+create policy "Dashboard can delete staff members"
+on public.staff_members for delete
+using (public.is_admin());
+
+drop policy if exists "Admins can read profiles" on public.profiles;
+create policy "Admins can read profiles"
+on public.profiles for select
+using (public.is_admin());
+
 drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile"
 on public.profiles for select
@@ -260,10 +327,21 @@ create policy "Users can read own orders"
 on public.orders for select
 using (auth.uid() = user_id);
 
+drop policy if exists "Dashboard can read orders" on public.orders;
+create policy "Dashboard can read orders"
+on public.orders for select
+using (public.is_admin());
+
 drop policy if exists "Users can create own orders" on public.orders;
 create policy "Users can create own orders"
 on public.orders for insert
 with check (auth.uid() = user_id);
+
+drop policy if exists "Dashboard can update orders" on public.orders;
+create policy "Dashboard can update orders"
+on public.orders for update
+using (public.is_admin())
+with check (public.is_admin());
 
 drop policy if exists "Users can read own order items" on public.order_items;
 create policy "Users can read own order items"
@@ -276,6 +354,23 @@ using (
       and public.orders.user_id = auth.uid()
   )
 );
+
+drop policy if exists "Users can create own order items" on public.order_items;
+create policy "Users can create own order items"
+on public.order_items for insert
+with check (
+  exists (
+    select 1
+    from public.orders
+    where public.orders.id = public.order_items.order_id
+      and public.orders.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Dashboard can read order items" on public.order_items;
+create policy "Dashboard can read order items"
+on public.order_items for select
+using (public.is_admin());
 
 insert into public.brands (name, logo_path) values
   ('Glow Boxes', 'assets/img/marca1.png'),
@@ -333,3 +428,8 @@ set
     when excluded.role = 'admin' or public.profiles.role = 'admin' then 'admin'
     else public.profiles.role
   end;
+
+insert into public.product_financials (product_id, cost_price)
+select id, 0
+from public.products
+on conflict (product_id) do nothing;

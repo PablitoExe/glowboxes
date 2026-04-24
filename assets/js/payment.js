@@ -45,6 +45,7 @@ const paymentCopy = {
 let activePaymentMethod = "mercadopago";
 let currentCheckout = null;
 let currentProfile = null;
+let isSubmittingOrder = false;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -254,6 +255,31 @@ function renderEmptyState() {
   setPaymentMessage("Tu pasarela ya esta lista. Solo falta armar el carrito para traer un pedido real.", "warning");
 }
 
+function renderSavedOrderState(orderId) {
+  const shortId = String(orderId || "").replace(/-/g, "").slice(0, 8).toUpperCase() || "SIN ID";
+
+  if (checkoutItemsContainer) {
+    checkoutItemsContainer.innerHTML = `
+      <article class="empty-checkout">
+        <h3>Pedido #${shortId} registrado</h3>
+        <p>La compra ya quedo guardada y ahora tambien aparece en tu cuenta y en el dashboard administrativo.</p>
+        <a href="mi-cuenta.html">Ver mi historial</a>
+      </article>
+    `;
+  }
+
+  if (checkoutMeta) {
+    checkoutMeta.textContent = `Pedido #${shortId} confirmado en el sistema.`;
+  }
+
+  checkoutSubtotal.textContent = formatMoney(0);
+  checkoutDiscount.textContent = formatMoney(0);
+  checkoutTax.textContent = formatMoney(0);
+  checkoutTotal.textContent = formatMoney(0);
+  paymentSubmit.disabled = true;
+  paymentSubmit.textContent = "Pedido registrado";
+}
+
 function renderCheckout(checkout) {
   if (!checkout) {
     renderEmptyState();
@@ -291,6 +317,58 @@ function renderCheckout(checkout) {
   setPaymentMessage("El pedido ya llego desde la tienda. Ahora tenes una pasarela propia y prolija para continuar el cobro.", "success");
 }
 
+async function persistOrder() {
+  if (!window.GlowDB?.client || !currentCheckout || !currentProfile?.id) {
+    return { data: null, error: "Necesitas iniciar sesion para registrar el pedido." };
+  }
+
+  const { data: order, error: orderError } = await window.GlowDB.client
+    .from("orders")
+    .insert({
+      user_id: currentProfile.id,
+      subtotal: currentCheckout.subtotal,
+      discount: currentCheckout.discount,
+      tax: currentCheckout.tax,
+      total: currentCheckout.total,
+      status: "pendiente"
+    })
+    .select("id")
+    .single();
+
+  if (orderError) {
+    return { data: null, error: orderError.message };
+  }
+
+  const itemsPayload = currentCheckout.items.map(item => ({
+    order_id: order.id,
+    product_id: item.productId || null,
+    quantity: Number(item.quantity || 0),
+    unit_price: Number(item.priceValue || 0)
+  }));
+
+  const { error: itemsError } = await window.GlowDB.client
+    .from("order_items")
+    .insert(itemsPayload);
+
+  if (itemsError) {
+    await window.GlowDB.client
+      .from("orders")
+      .delete()
+      .eq("id", order.id);
+
+    return { data: null, error: itemsError.message };
+  }
+
+  await window.GlowDB.client
+    .from("cart_items")
+    .delete()
+    .eq("user_id", currentProfile.id);
+
+  window.sessionStorage.removeItem(checkoutStorageKey);
+  currentCheckout = null;
+  return { data: order, error: null };
+}
+
 async function initPaymentPage() {
   if (typeof lucide !== "undefined") {
     lucide.createIcons();
@@ -319,11 +397,13 @@ paymentMethods.forEach(button => {
   });
 });
 
-paymentSubmit.addEventListener("click", () => {
+paymentSubmit.addEventListener("click", async () => {
   if (!currentCheckout) {
     window.location.href = "index.html";
     return;
   }
+
+  if (isSubmittingOrder) return;
 
   const payerReady = String(payerName?.value || "").trim() && String(payerEmail?.value || "").trim();
   const copy = paymentCopy[activePaymentMethod] || paymentCopy.mercadopago;
@@ -333,12 +413,33 @@ paymentSubmit.addEventListener("click", () => {
     return;
   }
 
-  if (activePaymentMethod === "transfer") {
-    setPaymentMessage("Tu checkout quedo preparado para transferencia. El proximo paso es mostrar alias, CVU y validacion de comprobante.", "success");
+  if (!currentProfile?.id) {
+    setPaymentMessage("Inicia sesion para que el pedido quede registrado y aparezca en tu historial.", "warning");
     return;
   }
 
-  setPaymentMessage(`${copy.title} ya tiene el resumen del pedido listo. Cuando quieras, el siguiente paso es conectar la redireccion real al proveedor.`, "success");
+  isSubmittingOrder = true;
+  paymentSubmit.disabled = true;
+
+  const { data: savedOrder, error } = await persistOrder();
+
+  if (error) {
+    isSubmittingOrder = false;
+    paymentSubmit.disabled = false;
+    setPaymentMessage(`No pudimos registrar el pedido: ${error}`, "warning");
+    return;
+  }
+
+  if (activePaymentMethod === "transfer") {
+    renderSavedOrderState(savedOrder.id);
+    setPaymentMessage(`Pedido #${String(savedOrder.id).slice(0, 8).toUpperCase()} registrado. Ahora puedes continuar con los datos de transferencia.`, "success");
+    isSubmittingOrder = false;
+    return;
+  }
+
+  renderSavedOrderState(savedOrder.id);
+  setPaymentMessage(`Pedido #${String(savedOrder.id).slice(0, 8).toUpperCase()} registrado. ${copy.title} ya tiene el resumen listo para conectar la pasarela real.`, "success");
+  isSubmittingOrder = false;
 });
 
 initPaymentPage();
