@@ -324,8 +324,11 @@
         total,
         status,
         shipping_type,
+        shipping_provider,
         shipping_carrier,
         tracking_code,
+        shipping_status,
+        shipping_data,
         payment_method,
         payment_status,
         payment_receipt_path,
@@ -357,6 +360,47 @@
     return data || [];
   }
 
+  async function createShipment(orderId, options = {}) {
+    if (!client) return { data: null, error: "Supabase no configurado" };
+
+    const { data, error } = await client.functions.invoke("create-shipment", {
+      body: {
+        orderId,
+        force: Boolean(options.force)
+      }
+    });
+
+    return { data, error: error?.message || null };
+  }
+
+  async function getTracking({ orderId, provider, trackingCode }) {
+    if (!client) return { data: null, error: "Supabase no configurado" };
+
+    const { data, error } = await client.functions.invoke("get-tracking", {
+      body: {
+        orderId,
+        provider,
+        tracking_code: trackingCode
+      }
+    });
+
+    return { data, error: error?.message || null };
+  }
+
+  async function getShippingLabel({ orderId, provider, trackingCode }) {
+    if (!client) return { data: null, error: "Supabase no configurado" };
+
+    const { data, error } = await client.functions.invoke("get-label", {
+      body: {
+        orderId,
+        provider,
+        tracking_code: trackingCode
+      }
+    });
+
+    return { data, error: error?.message || null };
+  }
+
   window.GlowDB = {
     client,
     isConfigured: Boolean(client),
@@ -374,6 +418,9 @@
     setCartItemQuantity,
     removeCartItem,
     listCartItems,
-    listOwnOrders
+    listOwnOrders,
+    createShipment,
+    getTracking,
+    getShippingLabel
   };
 })();

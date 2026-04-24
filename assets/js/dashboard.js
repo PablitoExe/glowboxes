@@ -179,7 +179,8 @@ function paymentMethodLabel(method) {
 function shippingCarrierLabel(carrier) {
   const labels = {
     andreani: "Andreani",
-    via_cargo: "Via Cargo"
+    correo: "Correo Argentino",
+    via_cargo: "Correo Argentino"
   };
 
   return labels[carrier] || "";
@@ -413,7 +414,7 @@ function orderCardMarkup(order) {
           <strong>${formatDashboardMoney(order.tax)}</strong>
         </div>
         <div>
-          <span>Correo</span>
+          <span>Envios</span>
           <strong>${escapeHtml(carrierLabel || (shippingType === "correo" ? "Sin servicio" : "No aplica"))}</strong>
         </div>
         <div>
@@ -452,23 +453,23 @@ function orderCardMarkup(order) {
           Tipo de envio
           <select class="order-shipping-select" data-id="${escapeHtml(order.id)}">
             <option value="delivery" ${shippingType === "delivery" ? "selected" : ""}>Delivery</option>
-            <option value="correo" ${shippingType === "correo" ? "selected" : ""}>Correo</option>
+            <option value="correo" ${shippingType === "correo" ? "selected" : ""}>Envios</option>
             <option value="retiro" ${shippingType === "retiro" ? "selected" : ""}>Retiro en local</option>
           </select>
         </label>
 
         <label>
-          Servicio de correo
+          Servicio de envios
           <select class="order-carrier-select" data-id="${escapeHtml(order.id)}" ${shippingType === "correo" ? "" : "disabled"}>
             <option value="">Sin servicio</option>
             <option value="andreani" ${order.shipping_carrier === "andreani" ? "selected" : ""}>Andreani</option>
-            <option value="via_cargo" ${order.shipping_carrier === "via_cargo" ? "selected" : ""}>Via Cargo</option>
+            <option value="correo" ${order.shipping_carrier === "correo" || order.shipping_carrier === "via_cargo" ? "selected" : ""}>Correo Argentino</option>
           </select>
         </label>
 
         <label class="${trackingRequired ? "is-required" : ""}">
           Codigo de seguimiento
-          <input class="order-tracking-input" data-id="${escapeHtml(order.id)}" type="text" value="${escapeHtml(order.tracking_code || "")}" placeholder="${shippingType === "correo" ? "Obligatorio para correo" : "Opcional"}">
+          <input class="order-tracking-input" data-id="${escapeHtml(order.id)}" type="text" value="${escapeHtml(order.tracking_code || "")}" placeholder="${shippingType === "correo" ? "Obligatorio para envios" : "Opcional"}">
         </label>
 
         <label>
@@ -838,8 +839,11 @@ async function renderAdminOrders() {
       total,
       status,
       shipping_type,
+      shipping_provider,
       shipping_carrier,
       tracking_code,
+      shipping_status,
+      shipping_data,
       payment_method,
       payment_status,
       payment_receipt_path,
@@ -907,8 +911,11 @@ async function renderAdminOrders() {
       shipping_type: window.GlowOrders?.normalizeShippingType
         ? window.GlowOrders.normalizeShippingType(order.shipping_type)
         : "delivery",
-      shipping_carrier: order.shipping_carrier || "",
+      shipping_provider: order.shipping_provider || order.shipping_carrier || "manual",
+      shipping_carrier: order.shipping_carrier || order.shipping_provider || "",
       tracking_code: order.tracking_code || "",
+      shipping_status: order.shipping_status || "pending",
+      shipping_data: order.shipping_data || null,
       payment_method: order.payment_method || "mercadopago",
       payment_status: order.payment_status || "pendiente",
       payment_receipt_path: order.payment_receipt_path || "",
@@ -1233,7 +1240,7 @@ async function updateOrderStatus(orderId, nextStatus) {
     : "delivery";
 
   if (shippingType === "correo" && nextStatus === "enviado_por_correo" && !String(order?.tracking_code || "").trim()) {
-    alert("Para marcar un pedido de correo como enviado, primero carga el codigo de seguimiento.");
+    alert("Para marcar un pedido de envios como enviado, primero carga el codigo de seguimiento.");
     await renderAdminOrders();
     return;
   }
@@ -1266,7 +1273,9 @@ async function updateOrderShippingType(orderId, shippingType) {
     .update({
       shipping_type: normalizedType,
       status: nextStatus,
+      shipping_provider: normalizedType === "correo" ? order?.shipping_provider || order?.shipping_carrier || "andreani" : "manual",
       shipping_carrier: normalizedType === "correo" ? order?.shipping_carrier || "andreani" : null,
+      shipping_status: normalizedType === "correo" ? order?.shipping_status || "pending" : "pending",
       tracking_code: normalizedType === "correo" ? order?.tracking_code || null : null,
       updated_at: new Date().toISOString()
     })
@@ -1285,26 +1294,30 @@ async function updateOrderShippingType(orderId, shippingType) {
 async function updateOrderShippingCarrier(orderId, shippingCarrier) {
   if (!window.GlowDB?.client) return;
 
-  const normalizedCarrier = ["andreani", "via_cargo"].includes(shippingCarrier)
+  const normalizedCarrier = ["andreani", "correo", "via_cargo"].includes(shippingCarrier)
     ? shippingCarrier
     : null;
+  const normalizedProvider = normalizedCarrier === "via_cargo"
+    ? "correo"
+    : normalizedCarrier || "manual";
 
   const { error } = await window.GlowDB.client
     .from("orders")
     .update({
+      shipping_provider: normalizedProvider,
       shipping_carrier: normalizedCarrier,
       updated_at: new Date().toISOString()
     })
     .eq("id", orderId);
 
   if (error) {
-    alert(`No se pudo actualizar el servicio de correo: ${error.message}`);
+    alert(`No se pudo actualizar el servicio de envios: ${error.message}`);
     console.error(error);
     return;
   }
 
   await renderAdminOrders();
-  showOrderToast("Servicio de correo actualizado.");
+  showOrderToast("Servicio de envios actualizado.");
 }
 
 async function updateOrderTracking(orderId, trackingCode) {

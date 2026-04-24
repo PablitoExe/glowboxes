@@ -137,8 +137,11 @@ function normalizeOrder(order) {
     shipping_type: window.GlowOrders?.normalizeShippingType
       ? window.GlowOrders.normalizeShippingType(order.shipping_type)
       : "delivery",
+    shipping_provider: order.shipping_provider || order.shipping_carrier || "manual",
     shipping_carrier: order.shipping_carrier || "",
     tracking_code: order.tracking_code || "",
+    shipping_status: order.shipping_status || "pending",
+    shipping_data: order.shipping_data || null,
     history: window.GlowOrders?.historyFor ? window.GlowOrders.historyFor(order) : [],
     subtotal: Number(order.subtotal || 0),
     discount: Number(order.discount || 0),
@@ -248,8 +251,8 @@ function renderOrders() {
     const shippingLabel = window.GlowOrders?.shippingLabels?.[order.shipping_type] || "Delivery";
     const carrierLabel = order.shipping_carrier === "andreani"
       ? "Andreani"
-      : order.shipping_carrier === "via_cargo"
-        ? "Via Cargo"
+      : order.shipping_carrier === "correo" || order.shipping_carrier === "via_cargo"
+        ? "Correo Argentino"
         : "";
     const timelineMarkup = window.GlowOrders?.buildTimelineMarkup
       ? window.GlowOrders.buildTimelineMarkup(order, escapeHtml)

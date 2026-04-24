@@ -49,12 +49,12 @@
       description: "Podes pasar por el local a retirar tu compra."
     },
     enviado_por_correo: {
-      label: "Enviado por correo",
-      shortLabel: "Correo",
+      label: "Enviado por envios",
+      shortLabel: "Envios",
       icon: "✉",
       tone: "route",
       colorClass: "is-route",
-      description: "El paquete fue entregado al correo."
+      description: "El paquete fue entregado al servicio de envios."
     },
     entregado_completado: {
       label: "Entregado / Completado",
@@ -88,7 +88,7 @@
 
   const shippingLabels = {
     delivery: "Delivery",
-    correo: "Correo",
+    correo: "Envios",
     retiro: "Retiro en local"
   };
 

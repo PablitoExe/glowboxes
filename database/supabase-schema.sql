@@ -103,8 +103,11 @@ create table if not exists public.orders (
   total numeric(12, 2) not null default 0,
   status text not null default 'pedido_recibido',
   shipping_type text not null default 'delivery',
+  shipping_provider text not null default 'manual',
   shipping_carrier text,
   tracking_code text,
+  shipping_status text not null default 'pending',
+  shipping_data jsonb,
   payment_method text not null default 'mercadopago',
   payment_status text not null default 'pendiente',
   payment_receipt_path text,
@@ -119,10 +122,19 @@ alter table public.orders
 add column if not exists shipping_type text not null default 'delivery';
 
 alter table public.orders
+add column if not exists shipping_provider text not null default 'manual';
+
+alter table public.orders
 add column if not exists shipping_carrier text;
 
 alter table public.orders
 add column if not exists tracking_code text;
+
+alter table public.orders
+add column if not exists shipping_status text not null default 'pending';
+
+alter table public.orders
+add column if not exists shipping_data jsonb;
 
 alter table public.orders
 add column if not exists payment_method text not null default 'mercadopago';
@@ -161,6 +173,15 @@ alter table public.orders
 drop constraint if exists orders_shipping_carrier_check;
 
 alter table public.orders
+drop constraint if exists orders_shipping_provider_check;
+
+alter table public.orders
+drop constraint if exists orders_shipping_status_check;
+
+alter table public.orders
+drop constraint if exists orders_shipping_provider_type_check;
+
+alter table public.orders
 drop constraint if exists orders_correo_tracking_check;
 
 alter table public.orders
@@ -175,6 +196,20 @@ drop constraint if exists orders_transfer_receipt_check;
 update public.orders
 set payment_method = 'mercadopago'
 where payment_method = 'card';
+
+update public.orders
+set shipping_provider = case
+  when shipping_type <> 'correo' then 'manual'
+  when shipping_carrier in ('andreani', 'correo') then shipping_carrier
+  when shipping_carrier = 'via_cargo' then 'correo'
+  else 'manual'
+end
+where shipping_provider is null
+  or shipping_provider = 'manual';
+
+update public.orders
+set shipping_carrier = 'correo'
+where shipping_carrier = 'via_cargo';
 
 alter table public.orders
 add constraint orders_status_check
@@ -198,10 +233,31 @@ add constraint orders_shipping_type_check
 check (shipping_type in ('delivery', 'correo', 'retiro'));
 
 alter table public.orders
+add constraint orders_shipping_provider_check
+check (shipping_provider in ('correo', 'andreani', 'manual'));
+
+alter table public.orders
 add constraint orders_shipping_carrier_check
 check (
   shipping_carrier is null
-  or shipping_carrier in ('andreani', 'via_cargo')
+  or shipping_carrier in ('andreani', 'correo', 'via_cargo')
+);
+
+alter table public.orders
+add constraint orders_shipping_status_check
+check (shipping_status in (
+  'pending',
+  'preparing',
+  'shipped',
+  'in_transit',
+  'delivered'
+));
+
+alter table public.orders
+add constraint orders_shipping_provider_type_check
+check (
+  shipping_type = 'correo'
+  or shipping_provider = 'manual'
 );
 
 alter table public.orders
@@ -257,6 +313,10 @@ create table if not exists public.order_status_history (
 
 create index if not exists order_status_history_order_id_idx
 on public.order_status_history(order_id, timestamp desc);
+
+create index if not exists orders_shipping_tracking_idx
+on public.orders(shipping_provider, tracking_code)
+where tracking_code is not null;
 
 create table if not exists public.stock_movements (
   id uuid primary key default gen_random_uuid(),

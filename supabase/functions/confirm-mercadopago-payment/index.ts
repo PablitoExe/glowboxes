@@ -112,10 +112,45 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: updateError.message }, 500);
   }
 
+  let shipment: unknown = null;
+  let shipmentError: string | null = null;
+
+  if (nextPaymentStatus === "aprobado") {
+    const internalSecret = Deno.env.get("SHIPPING_INTERNAL_SECRET") || "";
+
+    if (internalSecret) {
+      try {
+        const shipmentResponse = await fetch(`${supabaseUrl}/functions/v1/create-shipment`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
+            "x-internal-secret": internalSecret
+          },
+          body: JSON.stringify({ orderId })
+        });
+
+        const shipmentBody = await shipmentResponse.json().catch(() => null);
+
+        if (!shipmentResponse.ok) {
+          shipmentError = shipmentBody?.error || "No pudimos crear el envio automaticamente.";
+        } else {
+          shipment = shipmentBody;
+        }
+      } catch (error) {
+        shipmentError = error instanceof Error ? error.message : "No pudimos crear el envio automaticamente.";
+      }
+    } else {
+      shipmentError = "SHIPPING_INTERNAL_SECRET no esta configurado; envio automatico omitido.";
+    }
+  }
+
   return jsonResponse({
     orderId,
     paymentId,
     mercadoPagoStatus: payment.status,
-    paymentStatus: nextPaymentStatus
+    paymentStatus: nextPaymentStatus,
+    shipment,
+    shipmentError
   });
 });
