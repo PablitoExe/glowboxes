@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Glow Boxes | Pasarela de pago</title>
+
+  <link rel="stylesheet" href="assets/css/payment.css">
+  <link href="https://fonts.cdnfonts.com/css/mona-sans" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="payment-shell">
+    <header class="payment-topbar">
+      <a class="payment-logo" href="index.html" aria-label="Volver a la tienda">
+        <img src="assets/img/logo.png" alt="Glow Boxes">
+      </a>
+
+      <div class="payment-topbar-copy">
+        <span class="eyebrow">Paso 03 / Pasarela</span>
+        <h1>Tu pago ya esta en pista</h1>
+        <p>Cuando termina la animacion del carrito, el pedido aterriza aca con su resumen listo para seguir a la pasarela de cobro.</p>
+      </div>
+
+      <div class="payment-actions">
+        <a class="ghost-button" href="index.html">
+          <i data-lucide="arrow-left"></i>
+          <span>Volver a tienda</span>
+        </a>
+        <a class="primary-button" id="paymentAccountLink" href="auth.html?redirect=pasarela.html">
+          <i data-lucide="user-round"></i>
+          <span>Iniciar sesion</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="payment-grid">
+      <section class="payment-panel payment-panel-main">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Checkout</span>
+            <h2>Elegi como queres cobrar</h2>
+            <p>La pantalla ya quedo preparada para una integracion real. Mientras tanto, te deja el pedido ordenado y el siguiente paso bien marcado.</p>
+          </div>
+
+          <span class="secure-pill">
+            <i data-lucide="shield-check"></i>
+            Checkout seguro
+          </span>
+        </div>
+
+        <article class="payment-account">
+          <div class="account-copy">
+            <span class="account-chip">Cuenta vinculada</span>
+            <strong id="paymentCustomerName">Invitado</strong>
+            <p class="account-meta" id="paymentCustomerMeta">Checkout como invitado</p>
+          </div>
+
+          <a class="ghost-button" href="mi-cuenta.html">
+            <i data-lucide="sparkles"></i>
+            <span>Ver historial</span>
+          </a>
+        </article>
+
+        <div class="payment-fields">
+          <div class="payment-field">
+            <label for="payerName">Nombre completo</label>
+            <input id="payerName" type="text" placeholder="Tu nombre para el checkout">
+          </div>
+
+          <div class="payment-field">
+            <label for="payerEmail">Email</label>
+            <input id="payerEmail" type="email" placeholder="tu@email.com">
+          </div>
+        </div>
+
+        <p class="field-note">Estos datos dejan listo el handoff hacia la pasarela o el medio de cobro que quieras integrar despues.</p>
+
+        <div class="payment-methods">
+          <button class="payment-method active" type="button" data-payment-method="mercadopago">
+            <i data-lucide="wallet"></i>
+            <div>
+              <strong>Mercado Pago</strong>
+              <span>Salida rapida a un proveedor externo con cuotas y validacion segura.</span>
+            </div>
+          </button>
+
+          <button class="payment-method" type="button" data-payment-method="card">
+            <i data-lucide="credit-card"></i>
+            <div>
+              <strong>Tarjeta</strong>
+              <span>Flujo interno para debito, credito y autorizaciones dentro del sitio.</span>
+            </div>
+          </button>
+
+          <button class="payment-method" type="button" data-payment-method="transfer">
+            <i data-lucide="landmark"></i>
+            <div>
+              <strong>Transferencia</strong>
+              <span>Opcion manual para mostrar datos bancarios y recibir comprobantes.</span>
+            </div>
+          </button>
+        </div>
+
+        <article class="payment-method-copy">
+          <strong id="paymentMethodTitle">Mercado Pago</strong>
+          <p id="paymentMethodDescription">Ideal para una salida rapida a una pasarela externa con validacion segura y cuotas.</p>
+          <div class="payment-method-hint" id="paymentMethodHint">Preparado para conectar un checkout externo sin perder el resumen del pedido.</div>
+        </article>
+
+        <div class="payment-login-hint" id="paymentLoginHint">
+          Si queres que la compra aparezca en tu historial, <a href="auth.html?redirect=pasarela.html">inicia sesion antes de pagar</a>.
+        </div>
+
+        <div class="payment-footer">
+          <div class="payment-status" id="paymentStatus">Cargando tu resumen de compra...</div>
+          <button class="pay-button" id="paymentSubmit" type="button">Abrir Mercado Pago</button>
+        </div>
+      </section>
+
+      <aside class="payment-panel payment-panel-side">
+        <div class="summary-head">
+          <span class="eyebrow">Resumen</span>
+          <h2>Pedido listo</h2>
+          <p id="checkoutMeta">Todavia no hay un pedido preparado.</p>
+        </div>
+
+        <div class="checkout-items" id="checkoutItems"></div>
+
+        <section class="summary-totals">
+          <div class="totals-row">
+            <span>Subtotal</span>
+            <strong id="checkoutSubtotal">$0</strong>
+          </div>
+          <div class="totals-row">
+            <span>Descuento</span>
+            <strong id="checkoutDiscount">$0</strong>
+          </div>
+          <div class="totals-row">
+            <span>Impuestos</span>
+            <strong id="checkoutTax">$0</strong>
+          </div>
+          <div class="summary-total">
+            <span>Total del checkout</span>
+            <strong id="checkoutTotal">$0</strong>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/supabase-api.js"></script>
+  <script src="assets/js/payment.js" defer></script>
+</body>
+</html>
