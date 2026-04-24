@@ -2,22 +2,42 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
   getShippingProviderForOrder,
   providerForOrder,
-  type ShipmentOrder
+  type ShipmentOrder,
 } from "../_shared/shipping/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-internal-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+type GenericTable = {
+  Row: Record<string, unknown>;
+  Insert: Record<string, unknown>;
+  Update: Record<string, unknown>;
+};
+
+type Database = {
+  public: {
+    Tables: Record<string, GenericTable>;
+    Views: Record<string, GenericTable>;
+    Functions: Record<string, {
+      Args: Record<string, unknown>;
+      Returns: unknown;
+    }>;
+  };
+};
+
+type SupabaseClient = ReturnType<typeof createClient<Database>>;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -28,11 +48,14 @@ function mergeShippingData(current: unknown, patch: Record<string, unknown>) {
 
   return {
     ...base,
-    ...patch
+    ...patch,
   };
 }
 
-async function assertAdminOrInternal(request: Request, supabase: ReturnType<typeof createClient>) {
+async function assertAdminOrInternal(
+  request: Request,
+  supabase: SupabaseClient,
+) {
   const internalSecret = Deno.env.get("SHIPPING_INTERNAL_SECRET") || "";
   const requestSecret = request.headers.get("x-internal-secret") || "";
 
@@ -49,7 +72,7 @@ async function assertAdminOrInternal(request: Request, supabase: ReturnType<type
 
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser(token);
 
   if (userError || !user) {
@@ -63,13 +86,17 @@ async function assertAdminOrInternal(request: Request, supabase: ReturnType<type
     .maybeSingle();
 
   if (profileError || profile?.role !== "admin") {
-    return { ok: false, status: 403, error: "Solo administradores pueden crear envios." };
+    return {
+      ok: false,
+      status: 403,
+      error: "Solo administradores pueden crear envios.",
+    };
   }
 
   return { ok: true, status: 200, error: null };
 }
 
-async function loadOrder(supabase: ReturnType<typeof createClient>, orderId: string) {
+async function loadOrder(supabase: SupabaseClient, orderId: string) {
   const { data: order, error } = await supabase
     .from("orders")
     .select(`
@@ -115,7 +142,7 @@ async function loadOrder(supabase: ReturnType<typeof createClient>, orderId: str
 
   return {
     ...order,
-    profiles: profile
+    profiles: profile,
   } as ShipmentOrder;
 }
 
@@ -132,7 +159,10 @@ Deno.serve(async (request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse({ error: "Faltan variables de entorno de Supabase." }, 500);
+    return jsonResponse(
+      { error: "Faltan variables de entorno de Supabase." },
+      500,
+    );
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -158,7 +188,9 @@ Deno.serve(async (request) => {
     const providerName = providerForOrder(order);
 
     if (providerName === "manual") {
-      return jsonResponse({ error: "El pedido esta configurado con envio manual." }, 400);
+      return jsonResponse({
+        error: "El pedido esta configurado con envio manual.",
+      }, 400);
     }
 
     if (order.tracking_code && !force) {
@@ -167,7 +199,7 @@ Deno.serve(async (request) => {
         provider: providerName,
         trackingCode: order.tracking_code,
         shippingStatus: order.shipping_status || "pending",
-        skipped: true
+        skipped: true,
       });
     }
 
@@ -179,12 +211,13 @@ Deno.serve(async (request) => {
       shipment: shipment.raw,
       label_url: shipment.labelUrl || null,
       label_base64: shipment.labelBase64 || null,
-      shipment_created_at: new Date().toISOString()
+      shipment_created_at: new Date().toISOString(),
     });
 
-    const orderStatus = shipment.trackingCode && shipment.shippingStatus !== "pending"
-      ? "enviado_por_correo"
-      : "preparando_pedido";
+    const orderStatus =
+      shipment.trackingCode && shipment.shippingStatus !== "pending"
+        ? "enviado_por_correo"
+        : "preparando_pedido";
 
     const { error: updateError } = await supabase
       .from("orders")
@@ -195,7 +228,7 @@ Deno.serve(async (request) => {
         shipping_status: shipment.shippingStatus,
         shipping_data: shippingData,
         status: orderStatus,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq("id", orderId);
 
@@ -210,11 +243,13 @@ Deno.serve(async (request) => {
       shippingStatus: shipment.shippingStatus,
       labelUrl: shipment.labelUrl || null,
       labelBase64: shipment.labelBase64 || null,
-      raw: shipment.raw
+      raw: shipment.raw,
     });
   } catch (error) {
     return jsonResponse({
-      error: error instanceof Error ? error.message : "No pudimos crear el envio."
+      error: error instanceof Error
+        ? error.message
+        : "No pudimos crear el envio.",
     }, 502);
   }
 });

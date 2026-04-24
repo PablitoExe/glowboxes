@@ -1,33 +1,53 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
   getShippingProvider,
-  normalizeShippingProvider
+  normalizeShippingProvider,
 } from "../_shared/shipping/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+type GenericTable = {
+  Row: Record<string, unknown>;
+  Insert: Record<string, unknown>;
+  Update: Record<string, unknown>;
+};
+
+type Database = {
+  public: {
+    Tables: Record<string, GenericTable>;
+    Views: Record<string, GenericTable>;
+    Functions: Record<string, {
+      Args: Record<string, unknown>;
+      Returns: unknown;
+    }>;
+  };
+};
+
+type SupabaseClient = ReturnType<typeof createClient<Database>>;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   });
 }
 
 async function accessForOrder(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   token: string,
-  orderId: string
+  orderId: string,
 ) {
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser(token);
 
   if (userError || !user) return { allowed: false, admin: false };
@@ -65,16 +85,25 @@ Deno.serve(async (request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse({ error: "Faltan variables de entorno de Supabase." }, 500);
+    return jsonResponse(
+      { error: "Faltan variables de entorno de Supabase." },
+      500,
+    );
   }
 
   const body = await request.json().catch(() => ({}));
-  const trackingCode = String(body.tracking_code || body.trackingCode || "").trim();
-  const providerName = normalizeShippingProvider(body.provider || body.shipping_provider);
+  const trackingCode = String(body.tracking_code || body.trackingCode || "")
+    .trim();
+  const providerName = normalizeShippingProvider(
+    body.provider || body.shipping_provider,
+  );
   const orderId = String(body.orderId || "").trim();
 
   if (!trackingCode || providerName === "manual") {
-    return jsonResponse({ error: "Faltan tracking_code y provider valido." }, 400);
+    return jsonResponse(
+      { error: "Faltan tracking_code y provider valido." },
+      400,
+    );
   }
 
   const authHeader = request.headers.get("authorization") || "";
@@ -97,9 +126,10 @@ Deno.serve(async (request) => {
         .eq("id", orderId)
         .maybeSingle();
 
-      const base = order?.shipping_data && typeof order.shipping_data === "object"
-        ? order.shipping_data as Record<string, unknown>
-        : {};
+      const base =
+        order?.shipping_data && typeof order.shipping_data === "object"
+          ? order.shipping_data as Record<string, unknown>
+          : {};
 
       await supabase
         .from("orders")
@@ -109,9 +139,9 @@ Deno.serve(async (request) => {
             label_url: label.labelUrl || base.label_url || null,
             label_base64: label.labelBase64 || base.label_base64 || null,
             label_content_type: label.contentType,
-            last_label_at: new Date().toISOString()
+            last_label_at: new Date().toISOString(),
           },
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq("id", orderId);
     }
@@ -119,7 +149,9 @@ Deno.serve(async (request) => {
     return jsonResponse(label);
   } catch (error) {
     return jsonResponse({
-      error: error instanceof Error ? error.message : "No pudimos obtener la etiqueta."
+      error: error instanceof Error
+        ? error.message
+        : "No pudimos obtener la etiqueta.",
     }, 502);
   }
 });
