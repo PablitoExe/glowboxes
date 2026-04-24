@@ -12,6 +12,8 @@
 
 <main class="dashboard-shell">
   <aside class="sidebar">
+    <span class="sidebar-pill">Panel administrativo</span>
+
     <div class="brand-row">
       <img src="assets/img/logo.png" alt="Glow Boxes">
       <button class="menu-button" aria-label="Abrir menu">
@@ -23,8 +25,8 @@
 
     <button class="branch-card">
       <span>
-        <strong>Sucursales</strong>
-        <small>Pedro Jose Agrelo 1001</small>
+        <strong>Base operativa</strong>
+        <small>Pedro Jose Agrelo 1001 · Lanus</small>
       </span>
       <span class="chevron">⌄</span>
     </button>
@@ -34,10 +36,20 @@
         <span class="nav-icon">▣</span>
         Caja registradora
       </a>
-      <a class="active" href="#cargar-productos" data-section-link="cargar-productos">
-        <span class="nav-icon">▤</span>
-        Cargar productos
-      </a>
+      <div class="nav-group is-open is-active" data-nav-group="producto">
+        <button class="nav-group-toggle" type="button" data-nav-group-toggle="producto" aria-expanded="true">
+          <span class="nav-icon">□</span>
+          Producto
+          <span class="nav-group-chevron">⌄</span>
+        </button>
+
+        <div class="nav-submenu">
+          <a class="nav-sublink active" href="#cargar-productos" data-section-link="cargar-productos">Cargar productos</a>
+          <a class="nav-sublink" href="#cargar-categorias" data-section-link="cargar-categorias">Cargar categorias</a>
+          <a class="nav-sublink" href="#cargar-marcas" data-section-link="cargar-marcas">Cargar marcas</a>
+          <a class="nav-sublink" href="#productos" data-section-link="productos">Productos</a>
+        </div>
+      </div>
       <a href="#analiticas" data-section-link="analiticas">
         <span class="nav-icon">⌁</span>
         Analíticas
@@ -63,24 +75,27 @@
         Cerrar Sesión
       </a>
     </nav>
+
+    <div class="sidebar-foot">
+      <strong>Glow Boxes Control</strong>
+      <p>Catalogo, destacados y analiticas en una sola vista de trabajo.</p>
+    </div>
   </aside>
 
   <section class="dashboard-main">
     <header class="topbar">
-      <label class="search-panel">
-        <span>⌕</span>
-        <input type="search" placeholder="Busque aquí el producto.........">
-      </label>
+      <div class="topbar-intro">
+        <div class="topbar-copy">
+          <span class="topbar-kicker">Glow Boxes / Admin</span>
+          <h1>Centro de control</h1>
+          <p>Gestiona productos, marcas, categorias y destacados desde un dashboard mas claro y con mejor ritmo visual.</p>
+        </div>
 
-      <button class="top-action">
-        <span>▥</span>
-        Scan Código
-      </button>
-
-      <button class="top-action">
-        <span>♧</span>
-        Crear Factura
-      </button>
+        <label class="search-panel">
+          <span>⌕</span>
+          <input type="search" placeholder="Buscar producto, marca o categoria">
+        </label>
+      </div>
 
       <button class="notification" aria-label="Notificaciones">♢</button>
 
@@ -95,7 +110,7 @@
     </header>
 
     <section class="workspace">
-      <div class="hero-panel dashboard-section active" id="cargar-productos">
+      <section class="hero-panel dashboard-section active" id="cargar-productos">
         <img class="panel-logo-bg" src="assets/img/logo.png" alt="" aria-hidden="true">
 
         <section class="product-loader">
@@ -105,46 +120,24 @@
             <p>Agregá productos al catálogo, stock y dashboard desde este panel.</p>
           </div>
 
-          <section class="admin-tools">
-            <form class="quick-form" id="brandForm">
-              <h2>Cargar marca</h2>
-              <label>
-                Nombre de la marca
-                <input type="text" name="name" placeholder="Nueva marca" required>
-              </label>
-              <label>
-                Logo
-                <input type="file" name="logo" accept="image/*">
-              </label>
-              <button type="submit">Guardar marca</button>
-            </form>
+          <section class="admin-overview">
+            <article class="overview-card">
+              <span>Flujo 01</span>
+              <strong>Base del catalogo</strong>
+              <p>Carga primero marcas y categorias para dejar el alta de productos mucho mas rapida.</p>
+            </article>
 
-            <form class="quick-form" id="categoryForm">
-              <h2>Cargar categoria</h2>
-              <label>
-                Nombre de la categoria
-                <input type="text" name="name" placeholder="Nueva categoria" required>
-              </label>
-              <button type="submit">Guardar categoria</button>
-            </form>
-          </section>
+            <article class="overview-card">
+              <span>Flujo 02</span>
+              <strong>Visual del home</strong>
+              <p>Define colores, imagen y destacados para que cada producto ya salga con presencia propia.</p>
+            </article>
 
-          <section class="admin-tools admin-lists">
-            <section class="quick-form quick-list">
-              <div class="loaded-products-head">
-                <h2>Marcas cargadas</h2>
-                <span id="loadedBrandsCount">0 marcas</span>
-              </div>
-              <div class="mini-grid" id="loadedBrands"></div>
-            </section>
-
-            <section class="quick-form quick-list">
-              <div class="loaded-products-head">
-                <h2>Categorias cargadas</h2>
-                <span id="loadedCategoriesCount">0 categorias</span>
-              </div>
-              <div class="mini-grid" id="loadedCategories"></div>
-            </section>
+            <article class="overview-card">
+              <span>Flujo 03</span>
+              <strong>Lectura del inventario</strong>
+              <p>Salta a Analiticas cuando quieras revisar stock bajo, valor acumulado y categorias con movimiento.</p>
+            </article>
           </section>
 
           <form class="product-form" id="productForm">
@@ -202,6 +195,84 @@
               <button type="button" class="secondary-button" id="cancelProductEdit" hidden>Cancelar edición</button>
             </div>
           </form>
+        </section>
+      </section>
+
+      <section class="hero-panel dashboard-section" id="cargar-categorias">
+        <img class="panel-logo-bg" src="assets/img/logo.png" alt="" aria-hidden="true">
+
+        <section class="product-loader">
+          <div class="loader-heading">
+            <span>Cargar categorias</span>
+            <h1>Nueva categoria</h1>
+            <p>Organiza el catalogo con categorias claras para que el alta de productos y las analiticas queden mejor conectadas.</p>
+          </div>
+
+          <section class="admin-tools single-column-tools">
+            <form class="quick-form" id="categoryForm">
+              <h2>Cargar categoria</h2>
+              <label>
+                Nombre de la categoria
+                <input type="text" name="name" placeholder="Nueva categoria" required>
+              </label>
+              <button type="submit">Guardar categoria</button>
+            </form>
+          </section>
+
+          <section class="loaded-products">
+            <div class="loaded-products-head">
+              <h2>Categorias cargadas</h2>
+              <span id="loadedCategoriesCount">0 categorias</span>
+            </div>
+            <div class="mini-grid" id="loadedCategories"></div>
+          </section>
+        </section>
+      </section>
+
+      <section class="hero-panel dashboard-section" id="cargar-marcas">
+        <img class="panel-logo-bg" src="assets/img/logo.png" alt="" aria-hidden="true">
+
+        <section class="product-loader">
+          <div class="loader-heading">
+            <span>Cargar marcas</span>
+            <h1>Nueva marca</h1>
+            <p>Agrega marcas al sistema, sube su logo y define el orden en que van a aparecer dentro del dashboard y la tienda.</p>
+          </div>
+
+          <section class="admin-tools single-column-tools">
+            <form class="quick-form" id="brandForm">
+              <h2>Cargar marca</h2>
+              <label>
+                Nombre de la marca
+                <input type="text" name="name" placeholder="Nueva marca" required>
+              </label>
+              <label>
+                Logo
+                <input type="file" name="logo" accept="image/*">
+              </label>
+              <button type="submit">Guardar marca</button>
+            </form>
+          </section>
+
+          <section class="loaded-products">
+            <div class="loaded-products-head">
+              <h2>Marcas cargadas</h2>
+              <span id="loadedBrandsCount">0 marcas</span>
+            </div>
+            <div class="mini-grid" id="loadedBrands"></div>
+          </section>
+        </section>
+      </section>
+
+      <section class="hero-panel dashboard-section" id="productos">
+        <img class="panel-logo-bg" src="assets/img/logo.png" alt="" aria-hidden="true">
+
+        <section class="product-loader">
+          <div class="loader-heading">
+            <span>Productos</span>
+            <h1>Catalogo cargado</h1>
+            <p>Desde aca puedes editar productos, destacarlos para el home y limpiar el catalogo sin salir del panel administrativo.</p>
+          </div>
 
           <section class="loaded-products">
             <div class="loaded-products-head">
@@ -219,7 +290,7 @@
             <div class="loaded-products-grid" id="loadedProducts"></div>
           </section>
         </section>
-      </div>
+      </section>
 
       <section class="hero-panel analytics-panel dashboard-section" id="analiticas">
         <section class="product-loader analytics-loader">

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glow Boxes | Mi Cuenta</title>
+  <link rel="stylesheet" href="assets/css/customer-dashboard.css">
+  <link href="https://fonts.cdnfonts.com/css/mona-sans" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <main class="customer-shell">
+    <aside class="customer-sidebar">
+      <a class="sidebar-logo" href="index.html" aria-label="Volver a la tienda">
+        <img src="assets/img/logo.png" alt="Glow Boxes">
+      </a>
+
+      <section class="sidebar-profile glass-card">
+        <div class="profile-top">
+          <span class="profile-avatar" id="customerAvatar">GB</span>
+          <div class="profile-copy">
+            <span class="sidebar-kicker">Cuenta Glow Boxes</span>
+            <strong id="customerSidebarName">Cargando cuenta...</strong>
+            <small id="customerSidebarEmail">Preparando tu panel</small>
+          </div>
+        </div>
+
+        <div class="profile-badges">
+          <span>Cliente</span>
+          <span>Historial</span>
+        </div>
+      </section>
+
+      <nav class="sidebar-nav" aria-label="Secciones de mi cuenta">
+        <a class="active" href="#resumen">Resumen</a>
+        <a href="#compras">Compras</a>
+        <a href="index.html">Tienda</a>
+      </nav>
+
+      <section class="sidebar-note glass-card">
+        <span class="sidebar-kicker">Seguimiento</span>
+        <h3>Tus compras en un solo lugar</h3>
+        <p>Consulta tus pedidos, el estado de cada compra y el resumen total de tu cuenta.</p>
+      </section>
+    </aside>
+
+    <section class="customer-main">
+      <header class="customer-topbar glass-card">
+        <div class="topbar-copy">
+          <span class="eyebrow">Mi cuenta</span>
+          <h1>Compras, estados y totales en una vista clara.</h1>
+          <p>Segui cada pedido sin tener que buscar mails, capturas o mensajes.</p>
+        </div>
+
+        <div class="topbar-actions">
+          <a class="topbar-link" href="index.html">Seguir comprando</a>
+          <button type="button" class="topbar-button" id="logoutButton">Cerrar sesion</button>
+        </div>
+      </header>
+
+      <section class="hero-panel glass-card" id="resumen">
+        <div class="hero-copy">
+          <span class="eyebrow">Resumen</span>
+          <h2>Todo tu historial ordenado para entenderlo en segundos.</h2>
+          <p id="customerWelcomeMessage">Cargando tus pedidos y el resumen de tu cuenta...</p>
+
+          <div class="hero-tags" aria-hidden="true">
+            <span>Historial en tiempo real</span>
+            <span>Filtros por estado</span>
+            <span>Detalle por pedido</span>
+          </div>
+        </div>
+
+        <article class="hero-highlight">
+          <span class="hero-highlight-label">Ultima compra</span>
+          <strong id="lastOrderTitle">Todavia no registras compras</strong>
+          <p id="lastOrderMeta">Cuando hagas tu primer pedido lo vas a ver resumido aca.</p>
+          <span class="hero-highlight-total" id="lastOrderTotal">$0</span>
+        </article>
+      </section>
+
+      <section class="metrics-grid">
+        <article class="metric-card glass-card">
+          <span>Pedidos</span>
+          <strong id="metricOrders">0</strong>
+          <small>Total de compras registradas</small>
+        </article>
+
+        <article class="metric-card glass-card">
+          <span>Total invertido</span>
+          <strong id="metricSpent">$0</strong>
+          <small>Suma de todos tus pedidos</small>
+        </article>
+
+        <article class="metric-card glass-card">
+          <span>En proceso</span>
+          <strong id="metricInProgress">0</strong>
+          <small>Pedidos pendientes o pagados</small>
+        </article>
+
+        <article class="metric-card glass-card">
+          <span>Ultima compra</span>
+          <strong id="metricLastPurchase">Sin fecha</strong>
+          <small>Fecha del pedido mas reciente</small>
+        </article>
+      </section>
+
+      <section class="orders-panel glass-card" id="compras">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Compras</span>
+            <h2>Pedidos con detalle completo</h2>
+            <p>Filtra por estado para revisar rapido que paso con cada orden y cuanto gastaste.</p>
+          </div>
+
+          <div class="section-tools">
+            <div class="filter-group" role="tablist" aria-label="Filtrar pedidos por estado">
+              <button class="filter-chip active" type="button" data-status-filter="all">Todas</button>
+              <button class="filter-chip" type="button" data-status-filter="pendiente">Pendientes</button>
+              <button class="filter-chip" type="button" data-status-filter="pagado">Pagadas</button>
+              <button class="filter-chip" type="button" data-status-filter="enviado">Enviadas</button>
+              <button class="filter-chip" type="button" data-status-filter="cancelado">Canceladas</button>
+            </div>
+
+            <button class="refresh-button" type="button" id="refreshOrdersButton">Actualizar</button>
+          </div>
+        </div>
+
+        <div class="orders-meta">
+          <span id="ordersCountLabel">0 pedidos</span>
+        </div>
+
+        <div class="orders-list" id="ordersList"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/supabase-api.js"></script>
+  <script src="assets/js/customer-dashboard.js"></script>
+</body>
+</html>
