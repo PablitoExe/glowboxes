@@ -10,6 +10,8 @@ const paymentStatus = document.getElementById("paymentStatus");
 const paymentSubmit = document.getElementById("paymentSubmit");
 const paymentMethods = document.querySelectorAll("[data-payment-method]");
 const shippingMethods = document.querySelectorAll("[data-shipping-type]");
+const shippingCarrierPanel = document.getElementById("shippingCarrierPanel");
+const shippingCarriers = document.querySelectorAll("[data-shipping-carrier]");
 const paymentMethodTitle = document.getElementById("paymentMethodTitle");
 const paymentMethodDescription = document.getElementById("paymentMethodDescription");
 const paymentMethodHint = document.getElementById("paymentMethodHint");
@@ -45,6 +47,7 @@ const paymentCopy = {
 
 let activePaymentMethod = "mercadopago";
 let activeShippingType = "delivery";
+let activeShippingCarrier = "andreani";
 let currentCheckout = null;
 let currentProfile = null;
 let isSubmittingOrder = false;
@@ -282,6 +285,14 @@ function renderShippingType() {
   shippingMethods.forEach(button => {
     button.classList.toggle("active", button.dataset.shippingType === activeShippingType);
   });
+
+  if (shippingCarrierPanel) {
+    shippingCarrierPanel.hidden = activeShippingType !== "correo";
+  }
+
+  shippingCarriers.forEach(button => {
+    button.classList.toggle("active", button.dataset.shippingCarrier === activeShippingCarrier);
+  });
 }
 
 function renderCustomer(profile) {
@@ -460,6 +471,7 @@ async function persistOrder() {
       total: totals.total,
       status: "pedido_recibido",
       shipping_type: activeShippingType,
+      shipping_carrier: activeShippingType === "correo" ? activeShippingCarrier : null,
       payment_method: activePaymentMethod,
       payment_status: receiptPath ? "comprobante_cargado" : "pendiente",
       payment_receipt_path: receiptPath,
@@ -587,6 +599,13 @@ paymentMethods.forEach(button => {
 shippingMethods.forEach(button => {
   button.addEventListener("click", () => {
     activeShippingType = button.dataset.shippingType || "delivery";
+    renderShippingType();
+  });
+});
+
+shippingCarriers.forEach(button => {
+  button.addEventListener("click", () => {
+    activeShippingCarrier = button.dataset.shippingCarrier || "andreani";
     renderShippingType();
   });
 });

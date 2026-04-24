@@ -103,6 +103,7 @@ create table if not exists public.orders (
   total numeric(12, 2) not null default 0,
   status text not null default 'pedido_recibido',
   shipping_type text not null default 'delivery',
+  shipping_carrier text,
   tracking_code text,
   payment_method text not null default 'mercadopago',
   payment_status text not null default 'pendiente',
@@ -116,6 +117,9 @@ create table if not exists public.orders (
 
 alter table public.orders
 add column if not exists shipping_type text not null default 'delivery';
+
+alter table public.orders
+add column if not exists shipping_carrier text;
 
 alter table public.orders
 add column if not exists tracking_code text;
@@ -154,6 +158,9 @@ alter table public.orders
 drop constraint if exists orders_shipping_type_check;
 
 alter table public.orders
+drop constraint if exists orders_shipping_carrier_check;
+
+alter table public.orders
 drop constraint if exists orders_correo_tracking_check;
 
 alter table public.orders
@@ -189,6 +196,13 @@ check (status in (
 alter table public.orders
 add constraint orders_shipping_type_check
 check (shipping_type in ('delivery', 'correo', 'retiro'));
+
+alter table public.orders
+add constraint orders_shipping_carrier_check
+check (
+  shipping_carrier is null
+  or shipping_carrier in ('andreani', 'via_cargo')
+);
 
 alter table public.orders
 add constraint orders_correo_tracking_check
@@ -295,7 +309,7 @@ begin
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', new.email),
     case
-      when new.email = 'pablito@glowboxes.com.ar' then 'admin'
+      when new.email in ('pablito@glowboxes.com.ar', 'pablito@glowboxes.com') then 'admin'
       else 'cliente'
     end
   )
@@ -481,7 +495,7 @@ using (auth.uid() = id);
 drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile"
 on public.profiles for insert
-with check (auth.uid() = id and role = 'cliente');
+with check (auth.uid() = id and coalesce(role, 'cliente') = 'cliente');
 
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
@@ -656,7 +670,7 @@ select
   id,
   coalesce(raw_user_meta_data->>'full_name', email),
   case
-    when email = 'pablito@glowboxes.com.ar' then 'admin'
+    when email in ('pablito@glowboxes.com.ar', 'pablito@glowboxes.com') then 'admin'
     else 'cliente'
   end
 from auth.users

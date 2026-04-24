@@ -137,6 +137,7 @@ function normalizeOrder(order) {
     shipping_type: window.GlowOrders?.normalizeShippingType
       ? window.GlowOrders.normalizeShippingType(order.shipping_type)
       : "delivery",
+    shipping_carrier: order.shipping_carrier || "",
     tracking_code: order.tracking_code || "",
     history: window.GlowOrders?.historyFor ? window.GlowOrders.historyFor(order) : [],
     subtotal: Number(order.subtotal || 0),
@@ -245,6 +246,11 @@ function renderOrders() {
       ? window.GlowOrders.getStatusMeta(order.status)
       : { description: "" };
     const shippingLabel = window.GlowOrders?.shippingLabels?.[order.shipping_type] || "Delivery";
+    const carrierLabel = order.shipping_carrier === "andreani"
+      ? "Andreani"
+      : order.shipping_carrier === "via_cargo"
+        ? "Via Cargo"
+        : "";
     const timelineMarkup = window.GlowOrders?.buildTimelineMarkup
       ? window.GlowOrders.buildTimelineMarkup(order, escapeHtml)
       : "";
@@ -287,7 +293,7 @@ function renderOrders() {
           <div>
             <span class="order-code">Pedido #${escapeHtml(shortOrderId(order.id))}</span>
             <h3>${order.itemsCount} producto${order.itemsCount === 1 ? "" : "s"}</h3>
-            <p>${escapeHtml(formatDate(order.createdAt))} - ${escapeHtml(shippingLabel)}</p>
+            <p>${escapeHtml(formatDate(order.createdAt))} - ${escapeHtml(carrierLabel ? `${shippingLabel} / ${carrierLabel}` : shippingLabel)}</p>
           </div>
           ${window.GlowOrders?.isOrderActive?.(order.status) ? `<span class="active-order-badge">Activo</span>` : ""}
           <span class="status-pill ${status.className}">${status.label}</span>

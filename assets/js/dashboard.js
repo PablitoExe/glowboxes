@@ -176,6 +176,15 @@ function paymentMethodLabel(method) {
   return labels[method] || "Sin metodo";
 }
 
+function shippingCarrierLabel(carrier) {
+  const labels = {
+    andreani: "Andreani",
+    via_cargo: "Via Cargo"
+  };
+
+  return labels[carrier] || "";
+}
+
 function paymentStatusLabel(status) {
   const labels = {
     pendiente: "Pendiente",
@@ -329,6 +338,7 @@ function orderCardMarkup(order) {
     ? window.GlowOrders.normalizeShippingType(order.shipping_type)
     : "delivery";
   const shippingLabel = window.GlowOrders?.shippingLabels?.[shippingType] || "Delivery";
+  const carrierLabel = shippingCarrierLabel(order.shipping_carrier);
   const timelineMarkup = window.GlowOrders?.buildTimelineMarkup
     ? window.GlowOrders.buildTimelineMarkup(order, escapeHtml)
     : "";
@@ -378,7 +388,7 @@ function orderCardMarkup(order) {
         <div>
           <span class="topbar-kicker">Pedido #${shortDashboardId(order.id)}</span>
           <h3>${customerName}</h3>
-          <p>${formatDashboardDate(order.created_at)} · ${shippingLabel} · ${order.items_count} producto${order.items_count === 1 ? "" : "s"}</p>
+          <p>${formatDashboardDate(order.created_at)} · ${carrierLabel ? `${shippingLabel} / ${carrierLabel}` : shippingLabel} · ${order.items_count} producto${order.items_count === 1 ? "" : "s"}</p>
         </div>
         <div class="admin-order-head-side">
           ${window.GlowOrders?.isOrderActive?.(order.status) ? `<span class="active-order-badge">Activo</span>` : ""}
@@ -401,6 +411,10 @@ function orderCardMarkup(order) {
         <div>
           <span>Recargo de pago</span>
           <strong>${formatDashboardMoney(order.tax)}</strong>
+        </div>
+        <div>
+          <span>Correo</span>
+          <strong>${escapeHtml(carrierLabel || (shippingType === "correo" ? "Sin servicio" : "No aplica"))}</strong>
         </div>
         <div>
           <span>Tracking</span>
@@ -440,6 +454,15 @@ function orderCardMarkup(order) {
             <option value="delivery" ${shippingType === "delivery" ? "selected" : ""}>Delivery</option>
             <option value="correo" ${shippingType === "correo" ? "selected" : ""}>Correo</option>
             <option value="retiro" ${shippingType === "retiro" ? "selected" : ""}>Retiro en local</option>
+          </select>
+        </label>
+
+        <label>
+          Servicio de correo
+          <select class="order-carrier-select" data-id="${escapeHtml(order.id)}" ${shippingType === "correo" ? "" : "disabled"}>
+            <option value="">Sin servicio</option>
+            <option value="andreani" ${order.shipping_carrier === "andreani" ? "selected" : ""}>Andreani</option>
+            <option value="via_cargo" ${order.shipping_carrier === "via_cargo" ? "selected" : ""}>Via Cargo</option>
           </select>
         </label>
 
@@ -815,6 +838,7 @@ async function renderAdminOrders() {
       total,
       status,
       shipping_type,
+      shipping_carrier,
       tracking_code,
       payment_method,
       payment_status,
@@ -883,6 +907,7 @@ async function renderAdminOrders() {
       shipping_type: window.GlowOrders?.normalizeShippingType
         ? window.GlowOrders.normalizeShippingType(order.shipping_type)
         : "delivery",
+      shipping_carrier: order.shipping_carrier || "",
       tracking_code: order.tracking_code || "",
       payment_method: order.payment_method || "mercadopago",
       payment_status: order.payment_status || "pendiente",
@@ -1241,6 +1266,7 @@ async function updateOrderShippingType(orderId, shippingType) {
     .update({
       shipping_type: normalizedType,
       status: nextStatus,
+      shipping_carrier: normalizedType === "correo" ? order?.shipping_carrier || "andreani" : null,
       tracking_code: normalizedType === "correo" ? order?.tracking_code || null : null,
       updated_at: new Date().toISOString()
     })
@@ -1254,6 +1280,31 @@ async function updateOrderShippingType(orderId, shippingType) {
 
   await renderAdminOrders();
   showOrderToast("Tipo de envio actualizado.");
+}
+
+async function updateOrderShippingCarrier(orderId, shippingCarrier) {
+  if (!window.GlowDB?.client) return;
+
+  const normalizedCarrier = ["andreani", "via_cargo"].includes(shippingCarrier)
+    ? shippingCarrier
+    : null;
+
+  const { error } = await window.GlowDB.client
+    .from("orders")
+    .update({
+      shipping_carrier: normalizedCarrier,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    alert(`No se pudo actualizar el servicio de correo: ${error.message}`);
+    console.error(error);
+    return;
+  }
+
+  await renderAdminOrders();
+  showOrderToast("Servicio de correo actualizado.");
 }
 
 async function updateOrderTracking(orderId, trackingCode) {
@@ -1738,6 +1789,12 @@ adminOrders?.addEventListener("change", async (event) => {
   const shippingSelect = event.target.closest(".order-shipping-select");
   if (shippingSelect) {
     await updateOrderShippingType(shippingSelect.dataset.id, shippingSelect.value);
+    return;
+  }
+
+  const carrierSelect = event.target.closest(".order-carrier-select");
+  if (carrierSelect) {
+    await updateOrderShippingCarrier(carrierSelect.dataset.id, carrierSelect.value);
     return;
   }
 

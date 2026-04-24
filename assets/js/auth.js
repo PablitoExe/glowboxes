@@ -67,26 +67,56 @@ async function syncOwnProfile(user, fullName = "") {
     return { role: null, error: "Usuario no disponible" };
   }
 
-  const { error: upsertError } = await window.GlowDB.client
-    .from("profiles")
-    .upsert({
-      id: user.id,
-      full_name: profileName || user.email
-    }, { onConflict: "id" });
-
-  if (upsertError) {
-    console.error("No se pudo sincronizar el perfil:", upsertError);
-  }
-
   const { data: profile, error: profileError } = await window.GlowDB.client
     .from("profiles")
-    .select("role")
+    .select("role, full_name")
     .eq("id", user.id)
     .maybeSingle();
 
+  if (profileError) {
+    console.error("No se pudo leer el perfil:", profileError);
+    return { role: null, error: profileError };
+  }
+
+  if (profile) {
+    if (!profile.full_name && profileName) {
+      await window.GlowDB.client
+        .from("profiles")
+        .update({ full_name: profileName })
+        .eq("id", user.id);
+    }
+
+    return {
+      role: profile.role || "cliente",
+      error: null
+    };
+  }
+
+  const { error: insertError } = await window.GlowDB.client
+    .from("profiles")
+    .insert({
+      id: user.id,
+      full_name: profileName || user.email
+    });
+
+  if (insertError) {
+    console.error("No se pudo crear el perfil:", insertError);
+
+    const { data: retryProfile, error: retryError } = await window.GlowDB.client
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    return {
+      role: retryProfile?.role || null,
+      error: retryError || insertError
+    };
+  }
+
   return {
-    role: profile?.role || null,
-    error: upsertError || profileError || null
+    role: "cliente",
+    error: null
   };
 }
 

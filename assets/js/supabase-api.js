@@ -324,6 +324,7 @@
         total,
         status,
         shipping_type,
+        shipping_carrier,
         tracking_code,
         payment_method,
         payment_status,
