@@ -101,8 +101,116 @@ create table if not exists public.orders (
   discount numeric(12, 2) not null default 0,
   tax numeric(12, 2) not null default 0,
   total numeric(12, 2) not null default 0,
-  status text not null default 'pendiente' check (status in ('pendiente', 'pagado', 'enviado', 'cancelado')),
-  created_at timestamptz not null default now()
+  status text not null default 'pedido_recibido',
+  shipping_type text not null default 'delivery',
+  tracking_code text,
+  payment_method text not null default 'mercadopago',
+  payment_status text not null default 'pendiente',
+  payment_receipt_path text,
+  mercado_pago_preference_id text,
+  mercado_pago_init_point text,
+  customer_phone text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.orders
+add column if not exists shipping_type text not null default 'delivery';
+
+alter table public.orders
+add column if not exists tracking_code text;
+
+alter table public.orders
+add column if not exists payment_method text not null default 'mercadopago';
+
+alter table public.orders
+add column if not exists payment_status text not null default 'pendiente';
+
+alter table public.orders
+add column if not exists payment_receipt_path text;
+
+alter table public.orders
+add column if not exists mercado_pago_preference_id text;
+
+alter table public.orders
+add column if not exists mercado_pago_init_point text;
+
+alter table public.orders
+add column if not exists customer_phone text;
+
+alter table public.orders
+add column if not exists updated_at timestamptz not null default now();
+
+alter table public.orders
+alter column status set default 'pedido_recibido';
+
+alter table public.orders
+alter column shipping_type set default 'delivery';
+
+alter table public.orders
+drop constraint if exists orders_status_check;
+
+alter table public.orders
+drop constraint if exists orders_shipping_type_check;
+
+alter table public.orders
+drop constraint if exists orders_correo_tracking_check;
+
+alter table public.orders
+drop constraint if exists orders_payment_method_check;
+
+alter table public.orders
+drop constraint if exists orders_payment_status_check;
+
+alter table public.orders
+drop constraint if exists orders_transfer_receipt_check;
+
+update public.orders
+set payment_method = 'mercadopago'
+where payment_method = 'card';
+
+alter table public.orders
+add constraint orders_status_check
+check (status in (
+  'pedido_recibido',
+  'preparando_pedido',
+  'pedido_despachado',
+  'en_camino',
+  'en_sucursal',
+  'listo_para_retirar',
+  'enviado_por_correo',
+  'entregado_completado',
+  'cancelado',
+  'pendiente',
+  'pagado',
+  'enviado'
+));
+
+alter table public.orders
+add constraint orders_shipping_type_check
+check (shipping_type in ('delivery', 'correo', 'retiro'));
+
+alter table public.orders
+add constraint orders_correo_tracking_check
+check (
+  shipping_type <> 'correo'
+  or status <> 'enviado_por_correo'
+  or nullif(trim(tracking_code), '') is not null
+);
+
+alter table public.orders
+add constraint orders_payment_method_check
+check (payment_method in ('mercadopago', 'transfer'));
+
+alter table public.orders
+add constraint orders_payment_status_check
+check (payment_status in ('pendiente', 'comprobante_cargado', 'aprobado', 'rechazado'));
+
+alter table public.orders
+add constraint orders_transfer_receipt_check
+check (
+  payment_method <> 'transfer'
+  or nullif(trim(payment_receipt_path), '') is not null
 );
 
 create table if not exists public.order_items (
@@ -112,6 +220,29 @@ create table if not exists public.order_items (
   quantity integer not null default 1 check (quantity > 0),
   unit_price numeric(12, 2) not null default 0
 );
+
+create table if not exists public.order_status_history (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  status text not null check (status in (
+    'pedido_recibido',
+    'preparando_pedido',
+    'pedido_despachado',
+    'en_camino',
+    'en_sucursal',
+    'listo_para_retirar',
+    'enviado_por_correo',
+    'entregado_completado',
+    'cancelado',
+    'pendiente',
+    'pagado',
+    'enviado'
+  )),
+  timestamp timestamptz not null default now()
+);
+
+create index if not exists order_status_history_order_id_idx
+on public.order_status_history(order_id, timestamp desc);
 
 create table if not exists public.stock_movements (
   id uuid primary key default gen_random_uuid(),
@@ -134,6 +265,7 @@ alter table public.cart_items enable row level security;
 alter table public.wishlist_items enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.order_status_history enable row level security;
 alter table public.stock_movements enable row level security;
 
 create or replace function public.is_admin()
@@ -178,6 +310,53 @@ begin
   return new;
 end;
 $$;
+
+create or replace function public.touch_order_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists touch_order_updated_at on public.orders;
+create trigger touch_order_updated_at
+before update on public.orders
+for each row execute function public.touch_order_updated_at();
+
+create or replace function public.record_order_status_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.order_status_history (order_id, status, timestamp)
+    values (new.id, new.status, coalesce(new.created_at, now()));
+    return new;
+  end if;
+
+  if old.status is distinct from new.status then
+    insert into public.order_status_history (order_id, status, timestamp)
+    values (new.id, new.status, now());
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists record_order_status_history_insert on public.orders;
+create trigger record_order_status_history_insert
+after insert on public.orders
+for each row execute function public.record_order_status_history();
+
+drop trigger if exists record_order_status_history_update on public.orders;
+create trigger record_order_status_history_update
+after update of status on public.orders
+for each row execute function public.record_order_status_history();
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -302,13 +481,19 @@ using (auth.uid() = id);
 drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile"
 on public.profiles for insert
-with check (auth.uid() = id);
+with check (auth.uid() = id and role = 'cliente');
 
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
 on public.profiles for update
 using (auth.uid() = id)
 with check (auth.uid() = id);
+
+revoke all on public.profiles from anon;
+revoke update on public.profiles from authenticated;
+grant select on public.profiles to authenticated;
+grant insert (id, full_name) on public.profiles to authenticated;
+grant update (full_name) on public.profiles to authenticated;
 
 drop policy if exists "Users can manage own cart" on public.cart_items;
 create policy "Users can manage own cart"
@@ -341,6 +526,33 @@ drop policy if exists "Dashboard can update orders" on public.orders;
 create policy "Dashboard can update orders"
 on public.orders for update
 using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can delete orders" on public.orders;
+create policy "Dashboard can delete orders"
+on public.orders for delete
+using (public.is_admin());
+
+drop policy if exists "Users can read own order status history" on public.order_status_history;
+create policy "Users can read own order status history"
+on public.order_status_history for select
+using (
+  exists (
+    select 1
+    from public.orders
+    where public.orders.id = public.order_status_history.order_id
+      and public.orders.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "Dashboard can read order status history" on public.order_status_history;
+create policy "Dashboard can read order status history"
+on public.order_status_history for select
+using (public.is_admin());
+
+drop policy if exists "Dashboard can insert order status history" on public.order_status_history;
+create policy "Dashboard can insert order status history"
+on public.order_status_history for insert
 with check (public.is_admin());
 
 drop policy if exists "Users can read own order items" on public.order_items;
@@ -391,6 +603,10 @@ insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do update set public = true;
 
+insert into storage.buckets (id, name, public)
+values ('payment-receipts', 'payment-receipts', false)
+on conflict (id) do update set public = false;
+
 drop policy if exists "Public can read product images" on storage.objects;
 create policy "Public can read product images"
 on storage.objects for select
@@ -411,6 +627,29 @@ drop policy if exists "Dashboard can delete product images" on storage.objects;
 create policy "Dashboard can delete product images"
 on storage.objects for delete
 using (bucket_id = 'product-images' and public.is_admin());
+
+drop policy if exists "Users can upload payment receipts" on storage.objects;
+create policy "Users can upload payment receipts"
+on storage.objects for insert
+with check (
+  bucket_id = 'payment-receipts'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "Users can read own payment receipts" on storage.objects;
+create policy "Users can read own payment receipts"
+on storage.objects for select
+using (
+  bucket_id = 'payment-receipts'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "Dashboard can read payment receipts" on storage.objects;
+create policy "Dashboard can read payment receipts"
+on storage.objects for select
+using (bucket_id = 'payment-receipts' and public.is_admin());
 
 insert into public.profiles (id, full_name, role)
 select
@@ -433,3 +672,23 @@ insert into public.product_financials (product_id, cost_price)
 select id, 0
 from public.products
 on conflict (product_id) do nothing;
+
+insert into public.order_status_history (order_id, status, timestamp)
+select orders.id, orders.status, coalesce(orders.created_at, now())
+from public.orders
+where not exists (
+  select 1
+  from public.order_status_history
+  where order_status_history.order_id = orders.id
+);
+
+-- Ejemplos de actualizacion manual:
+-- update public.orders
+-- set status = 'preparando_pedido'
+-- where id = '00000000-0000-0000-0000-000000000000';
+--
+-- update public.orders
+-- set shipping_type = 'correo',
+--     tracking_code = 'TN123456789AR',
+--     status = 'enviado_por_correo'
+-- where id = '00000000-0000-0000-0000-000000000000';

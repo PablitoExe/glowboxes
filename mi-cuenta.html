@@ -117,9 +117,10 @@
           <div class="section-tools">
             <div class="filter-group" role="tablist" aria-label="Filtrar pedidos por estado">
               <button class="filter-chip active" type="button" data-status-filter="all">Todas</button>
-              <button class="filter-chip" type="button" data-status-filter="pendiente">Pendientes</button>
-              <button class="filter-chip" type="button" data-status-filter="pagado">Pagadas</button>
-              <button class="filter-chip" type="button" data-status-filter="enviado">Enviadas</button>
+              <button class="filter-chip" type="button" data-status-filter="pedido_recibido">Recibidas</button>
+              <button class="filter-chip" type="button" data-status-filter="preparando_pedido">Preparando</button>
+              <button class="filter-chip" type="button" data-status-filter="en_camino">En camino</button>
+              <button class="filter-chip" type="button" data-status-filter="entregado_completado">Completadas</button>
               <button class="filter-chip" type="button" data-status-filter="cancelado">Canceladas</button>
             </div>
 
@@ -138,6 +139,7 @@
 
   <script src="assets/js/supabase-config.js"></script>
   <script src="assets/js/supabase-api.js"></script>
+  <script src="assets/js/order-workflow.js"></script>
   <script src="assets/js/customer-dashboard.js"></script>
 </body>
 </html>

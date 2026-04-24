@@ -19,6 +19,7 @@ const sidebarNavLinks = document.querySelectorAll(".sidebar-nav a");
 let activeStatusFilter = "all";
 let allOrders = [];
 let currentCustomerProfile = null;
+let returnNoticeShown = false;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -67,43 +68,56 @@ function normalizeAssetPath(path) {
   return String(path || "").replace(/^img\//, "assets/img/");
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function mergeOrderItems(items) {
+  const grouped = new Map();
+
+  items.forEach(item => {
+    const identity = item.productId || item.image || `${normalizeText(item.name)}-${Number(item.unitPrice || 0)}`;
+    const existing = grouped.get(identity);
+
+    if (existing) {
+      existing.quantity += Number(item.quantity || 0);
+      existing.totalPrice = existing.quantity * existing.unitPrice;
+      return;
+    }
+
+    grouped.set(identity, {
+      ...item,
+      quantity: Number(item.quantity || 0),
+      totalPrice: Number(item.unitPrice || 0) * Number(item.quantity || 0)
+    });
+  });
+
+  return [...grouped.values()];
+}
+
 function orderStatusMeta(status) {
-  const normalizedStatus = String(status || "pendiente").toLowerCase();
-
-  if (normalizedStatus === "pagado") {
-    return {
-      label: "Pagado",
-      className: "is-pagado"
-    };
-  }
-
-  if (normalizedStatus === "enviado") {
-    return {
-      label: "Enviado",
-      className: "is-enviado"
-    };
-  }
-
-  if (normalizedStatus === "cancelado") {
-    return {
-      label: "Cancelado",
-      className: "is-cancelado"
-    };
-  }
+  const meta = window.GlowOrders?.getStatusMeta
+    ? window.GlowOrders.getStatusMeta(status)
+    : { label: "Pedido recibido", colorClass: "is-process" };
 
   return {
-    label: "Pendiente",
-    className: "is-pendiente"
+    label: meta.label,
+    className: meta.colorClass || "is-process"
   };
 }
 
 function normalizeOrder(order) {
-  const items = Array.isArray(order.order_items)
+  const items = mergeOrderItems(Array.isArray(order.order_items)
     ? order.order_items.map(item => {
       const productName = item.products?.name || `Producto ${shortOrderId(item.product_id)}`;
 
       return {
         id: item.id,
+        productId: item.product_id ? String(item.product_id) : null,
         name: productName,
         quantity: Number(item.quantity || 0),
         unitPrice: Number(item.unit_price || 0),
@@ -111,12 +125,20 @@ function normalizeOrder(order) {
         image: normalizeAssetPath(item.products?.image_path)
       };
     })
-    : [];
+    : []);
 
   return {
     id: order.id,
     createdAt: order.created_at,
-    status: String(order.status || "pendiente").toLowerCase(),
+    updatedAt: order.updated_at || order.created_at,
+    status: window.GlowOrders?.normalizeStatus
+      ? window.GlowOrders.normalizeStatus(order.status)
+      : String(order.status || "pedido_recibido").toLowerCase(),
+    shipping_type: window.GlowOrders?.normalizeShippingType
+      ? window.GlowOrders.normalizeShippingType(order.shipping_type)
+      : "delivery",
+    tracking_code: order.tracking_code || "",
+    history: window.GlowOrders?.historyFor ? window.GlowOrders.historyFor(order) : [],
     subtotal: Number(order.subtotal || 0),
     discount: Number(order.discount || 0),
     tax: Number(order.tax || 0),
@@ -145,7 +167,11 @@ function setOrdersCountLabel(visibleCount) {
 
 function renderSummary(profile) {
   const totalSpent = allOrders.reduce((sum, order) => sum + order.total, 0);
-  const inProgress = allOrders.filter(order => order.status === "pendiente" || order.status === "pagado").length;
+  const inProgress = allOrders.filter(order => {
+    return window.GlowOrders?.isOrderActive
+      ? window.GlowOrders.isOrderActive(order.status)
+      : order.status !== "entregado_completado";
+  }).length;
   const latestOrder = allOrders[0] || null;
   const profileName = profile?.full_name || profile?.email || "Glow Boxes";
 
@@ -155,7 +181,7 @@ function renderSummary(profile) {
     customerAvatar.textContent = initialsFromName(profileName);
   }
   welcomeMessage.textContent = latestOrder
-    ? `${profileName}, aca tenes un resumen rapido de tus ${allOrders.length} pedido${allOrders.length === 1 ? "" : "s"} y el detalle completo de cada compra.`
+    ? `${profileName}, aca tenes un resumen rapido de tus ${allOrders.length} pedido${allOrders.length === 1 ? "" : "s"}, con tracking visual e historial de cambios.`
     : `${profileName}, todavia no vemos compras registradas en tu cuenta. Cuando hagas tu primer pedido va a aparecer aca con el detalle completo.`;
 
   metricOrders.textContent = allOrders.length;
@@ -215,6 +241,27 @@ function renderOrders() {
 
   ordersList.innerHTML = orders.map(order => {
     const status = orderStatusMeta(order.status);
+    const workflowMeta = window.GlowOrders?.getStatusMeta
+      ? window.GlowOrders.getStatusMeta(order.status)
+      : { description: "" };
+    const shippingLabel = window.GlowOrders?.shippingLabels?.[order.shipping_type] || "Delivery";
+    const timelineMarkup = window.GlowOrders?.buildTimelineMarkup
+      ? window.GlowOrders.buildTimelineMarkup(order, escapeHtml)
+      : "";
+    const historyMarkup = order.history.length
+      ? order.history.slice().reverse().map(entry => {
+        const historyStatus = window.GlowOrders?.getStatusMeta
+          ? window.GlowOrders.getStatusMeta(entry.status)
+          : { label: entry.status };
+
+        return `
+          <li>
+            <span>${escapeHtml(historyStatus.label)}</span>
+            <time>${escapeHtml(window.GlowOrders?.formatDateTime ? window.GlowOrders.formatDateTime(entry.timestamp) : formatDate(entry.timestamp))}</time>
+          </li>
+        `;
+      }).join("")
+      : `<li><span>Sin historial visible</span><time>Esperando sincronizacion</time></li>`;
     const itemsMarkup = order.items.length
       ? order.items.map(item => {
         const media = item.image
@@ -235,15 +282,27 @@ function renderOrders() {
       : `<p class="order-card-empty">Este pedido no tiene items visibles.</p>`;
 
     return `
-      <article class="order-card">
+      <article class="order-card" data-order-id="${escapeHtml(order.id)}">
         <header class="order-card-head">
           <div>
             <span class="order-code">Pedido #${escapeHtml(shortOrderId(order.id))}</span>
             <h3>${order.itemsCount} producto${order.itemsCount === 1 ? "" : "s"}</h3>
-            <p>${escapeHtml(formatDate(order.createdAt))}</p>
+            <p>${escapeHtml(formatDate(order.createdAt))} - ${escapeHtml(shippingLabel)}</p>
           </div>
+          ${window.GlowOrders?.isOrderActive?.(order.status) ? `<span class="active-order-badge">Activo</span>` : ""}
           <span class="status-pill ${status.className}">${status.label}</span>
         </header>
+
+        <section class="order-live-status">
+          <span class="order-live-icon">${escapeHtml(workflowMeta.icon || "✓")}</span>
+          <div>
+            <strong>${escapeHtml(status.label)}</strong>
+            <p>${escapeHtml(workflowMeta.description || "Estado actualizado del pedido.")}</p>
+            ${order.tracking_code ? `<small>Tracking: ${escapeHtml(order.tracking_code)}</small>` : ""}
+          </div>
+        </section>
+
+        ${timelineMarkup}
 
         <section class="order-summary-grid">
           <article>
@@ -255,7 +314,7 @@ function renderOrders() {
             <strong>${formatMoney(order.discount)}</strong>
           </article>
           <article>
-            <span>Impuestos</span>
+            <span>Recargo de pago</span>
             <strong>${formatMoney(order.tax)}</strong>
           </article>
           <article>
@@ -267,9 +326,122 @@ function renderOrders() {
         <section class="order-items">
           ${itemsMarkup}
         </section>
+
+        <section class="order-history">
+          <h4>Historial de cambios</h4>
+          <ul>${historyMarkup}</ul>
+        </section>
       </article>
     `;
   }).join("");
+}
+
+function showCustomerToast(message, duration = 4200) {
+  const toast = document.createElement("div");
+  toast.className = "order-toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.classList.add("show"), 20);
+  window.setTimeout(() => {
+    toast.classList.remove("show");
+    window.setTimeout(() => toast.remove(), 250);
+  }, duration);
+}
+
+function focusOrderFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get("order");
+
+  if (!orderId || !ordersList) return;
+
+  window.location.hash = "#compras";
+  syncSidebarNavigation();
+
+  const orderCard = ordersList.querySelector(`[data-order-id="${CSS.escape(orderId)}"]`);
+
+  if (orderCard) {
+    orderCard.classList.add("is-highlighted");
+    orderCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => orderCard.classList.remove("is-highlighted"), 4200);
+  }
+}
+
+async function confirmMercadoPagoReturn(params) {
+  if (!window.GlowDB?.client || params.get("payment") !== "success") {
+    return null;
+  }
+
+  const orderId = params.get("order");
+  const paymentId = params.get("payment_id") || params.get("collection_id");
+
+  if (!orderId || !paymentId) {
+    return null;
+  }
+
+  const { data, error } = await window.GlowDB.client.functions.invoke("confirm-mercadopago-payment", {
+    body: {
+      orderId,
+      paymentId
+    }
+  });
+
+  if (error || data?.error) {
+    console.error("No pudimos confirmar Mercado Pago:", error || data);
+    return {
+      type: "warning",
+      message: "No pudimos confirmar el pago todavia. Revisa el estado en unos minutos."
+    };
+  }
+
+  if (data?.paymentStatus === "aprobado") {
+    return {
+      type: "success",
+      message: "Pago aprobado. Ya podes ver tu pedido."
+    };
+  }
+
+  return {
+    type: "warning",
+    message: "El pago quedo pendiente. Te avisaremos cuando se acredite."
+  };
+}
+
+async function handlePaymentReturn() {
+  if (returnNoticeShown) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get("payment");
+
+  if (!payment) return;
+
+  returnNoticeShown = true;
+
+  if (payment === "transfer_review") {
+    showCustomerToast("Pedido registrado. Nuestro equipo va a revisar que el pago haya llegado.", 5600);
+    focusOrderFromUrl();
+    return;
+  }
+
+  if (payment === "failure") {
+    showCustomerToast("El pago no se completo. Podes volver a intentarlo.", 5200);
+    focusOrderFromUrl();
+    return;
+  }
+
+  if (payment === "pending") {
+    showCustomerToast("El pago quedo pendiente. Te avisaremos cuando se acredite.", 5200);
+    focusOrderFromUrl();
+    return;
+  }
+
+  const confirmation = await confirmMercadoPagoReturn(params);
+
+  if (confirmation) {
+    await loadOrders(currentCustomerProfile);
+    showCustomerToast(confirmation.message, confirmation.type === "success" ? 4800 : 5600);
+  }
+
+  focusOrderFromUrl();
 }
 
 function setActiveFilter(nextFilter) {
@@ -342,6 +514,33 @@ async function loadOrders(profile) {
   refreshOrdersButton.textContent = "Actualizar";
 }
 
+function notifyOrderUpdate(payload) {
+  const nextStatus = window.GlowOrders?.getStatusMeta
+    ? window.GlowOrders.getStatusMeta(payload?.new?.status)
+    : { label: "Pedido actualizado" };
+  const message = `Pedido #${shortOrderId(payload?.new?.id)} actualizado: ${nextStatus.label}`;
+  showCustomerToast(message, 3600);
+}
+
+function startOrderRealtime() {
+  if (!window.GlowDB?.client) return;
+
+  window.GlowDB.client
+    .channel("customer-orders-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, async (payload) => {
+      notifyOrderUpdate(payload);
+      await loadOrders(currentCustomerProfile);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "order_status_history" }, async () => {
+      await loadOrders(currentCustomerProfile);
+    })
+    .subscribe();
+
+  window.setInterval(async () => {
+    await loadOrders(currentCustomerProfile);
+  }, 45000);
+}
+
 filterButtons.forEach(button => {
   button.addEventListener("click", () => {
     setActiveFilter(button.dataset.statusFilter);
@@ -391,6 +590,8 @@ async function initCustomerDashboard() {
   renderOrders();
   syncSidebarNavigation();
   await loadOrders(currentCustomerProfile);
+  await handlePaymentReturn();
+  startOrderRealtime();
 }
 
 initCustomerDashboard();

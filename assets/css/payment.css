@@ -300,6 +300,10 @@ button {
   outline: none;
 }
 
+.full-payment-field {
+  grid-column: 1 / -1;
+}
+
 .payment-field input:focus {
   border-color: rgba(203, 184, 255, 0.42);
   box-shadow: 0 0 0 4px rgba(138, 92, 255, 0.12);
@@ -314,6 +318,42 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.shipping-methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.shipping-method {
+  min-height: 54px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.shipping-method:hover {
+  transform: translateY(-1px);
+}
+
+.shipping-method.active {
+  border-color: rgba(142, 216, 255, 0.3);
+  background: rgba(142, 216, 255, 0.12);
+}
+
+.shipping-method i {
+  width: 18px;
+  height: 18px;
 }
 
 .payment-method {
@@ -359,6 +399,61 @@ button {
   border-radius: 28px;
   background: linear-gradient(180deg, rgba(19, 15, 27, 0.92), rgba(255, 255, 255, 0.03));
   border: 1px solid var(--line);
+}
+
+.transfer-receipt-panel {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border-radius: 24px;
+  background: rgba(255, 212, 122, 0.08);
+  border: 1px solid rgba(255, 212, 122, 0.16);
+}
+
+.transfer-receipt-panel[hidden] {
+  display: none;
+}
+
+.transfer-receipt-panel strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.transfer-receipt-panel p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.receipt-upload {
+  min-height: 52px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 999px;
+  color: #150f20;
+  background: linear-gradient(135deg, var(--warning), #fff4d0);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.receipt-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.receipt-upload i {
+  width: 18px;
+  height: 18px;
 }
 
 .payment-method-copy strong {
@@ -574,6 +669,7 @@ button {
   }
 
   .payment-fields,
+  .shipping-methods,
   .payment-methods {
     grid-template-columns: 1fr;
   }
@@ -581,6 +677,10 @@ button {
   .payment-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .transfer-receipt-panel {
+    grid-template-columns: 1fr;
   }
 
   .pay-button {

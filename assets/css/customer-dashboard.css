@@ -632,6 +632,11 @@ button {
   border: 1px solid var(--line);
 }
 
+.order-card.is-highlighted {
+  border-color: rgba(239, 116, 255, 0.82);
+  box-shadow: 0 0 0 1px rgba(239, 116, 255, 0.32), 0 22px 60px rgba(239, 116, 255, 0.18);
+}
+
 .order-card-head {
   display: flex;
   align-items: start;
@@ -672,23 +677,224 @@ button {
 }
 
 .status-pill.is-pendiente {
-  background: rgba(164, 126, 255, 0.18);
-  color: var(--warning);
+  background: rgba(166, 174, 190, 0.16);
+  color: #d8deea;
 }
 
-.status-pill.is-pagado {
-  background: rgba(86, 212, 157, 0.16);
-  color: #9df2c3;
+.status-pill.is-process {
+  background: rgba(255, 216, 109, 0.16);
+  color: #ffe39a;
 }
 
-.status-pill.is-enviado {
+.status-pill.is-route {
   background: rgba(126, 200, 255, 0.16);
   color: #bddcff;
 }
 
+.status-pill.is-done {
+  background: rgba(86, 212, 157, 0.16);
+  color: #9df2c3;
+}
+
+.status-pill.is-danger,
 .status-pill.is-cancelado {
   background: rgba(255, 93, 149, 0.16);
   color: var(--danger);
+}
+
+.active-order-badge {
+  align-self: flex-start;
+  padding: 9px 11px;
+  border-radius: 999px;
+  background: rgba(255, 216, 109, 0.14);
+  border: 1px solid rgba(255, 216, 109, 0.22);
+  color: #ffe39a;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.order-live-status {
+  margin-top: 20px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 216, 109, 0.1), rgba(126, 200, 255, 0.07));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.order-live-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff6cf;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.order-live-status strong,
+.order-history h4 {
+  display: block;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+
+.order-live-status p,
+.order-live-status small {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.order-timeline {
+  position: relative;
+  margin-top: 22px;
+  padding: 10px 0 2px;
+}
+
+.order-progress-track {
+  position: absolute;
+  top: 31px;
+  left: 28px;
+  right: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(166, 174, 190, 0.18);
+  overflow: hidden;
+}
+
+.order-progress-track span {
+  display: block;
+  width: var(--progress);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffd86d, #8ed8ff, #56d49d);
+  transition: width 0.35s ease;
+}
+
+.order-steps {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 10px;
+}
+
+.order-step {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.52);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.order-step:hover {
+  transform: translateY(-2px);
+}
+
+.order-step-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(166, 174, 190, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.order-step strong {
+  max-width: 96px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.order-step.is-process,
+.order-step.is-route,
+.order-step.is-done {
+  color: var(--text);
+}
+
+.order-step.is-process .order-step-icon {
+  background: rgba(255, 216, 109, 0.18);
+  color: #ffe39a;
+}
+
+.order-step.is-route .order-step-icon {
+  background: rgba(126, 200, 255, 0.18);
+  color: #bddcff;
+}
+
+.order-step.is-done .order-step-icon {
+  background: rgba(86, 212, 157, 0.18);
+  color: #9df2c3;
+}
+
+.order-history {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.order-history h4 {
+  margin: 0 0 12px;
+}
+
+.order-history ul {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+  list-style: none;
+}
+
+.order-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 13px;
+}
+
+.order-history time {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.order-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  max-width: min(360px, calc(100vw - 36px));
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(20, 17, 24, 0.94);
+  border: 1px solid rgba(126, 200, 255, 0.24);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.order-toast.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .order-summary-grid {
@@ -882,11 +1088,32 @@ button {
   }
 
   .order-card-head,
-  .order-item {
+  .order-item,
+  .order-live-status {
     grid-template-columns: 1fr;
   }
 
   .order-item-price {
     justify-self: start;
+  }
+
+  .order-card-head {
+    display: grid;
+  }
+
+  .active-order-badge {
+    justify-self: start;
+  }
+
+  .order-progress-track {
+    display: none;
+  }
+
+  .order-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .order-history li {
+    display: grid;
   }
 }

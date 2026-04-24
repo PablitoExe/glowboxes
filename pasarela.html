@@ -22,8 +22,8 @@
 
       <div class="payment-topbar-copy">
         <span class="eyebrow">Paso 03 / Pasarela</span>
-        <h1>Tu pago ya esta en pista</h1>
-        <p>Cuando termina la animacion del carrito, el pedido aterriza aca con su resumen listo para seguir a la pasarela de cobro.</p>
+        <h1>Finalizar compra</h1>
+        <p>Revisa tu pedido y elegi como pagar.</p>
       </div>
 
       <div class="payment-actions">
@@ -43,8 +43,7 @@
         <div class="panel-head">
           <div>
             <span class="eyebrow">Checkout</span>
-            <h2>Elegi como queres cobrar</h2>
-            <p>La pantalla ya quedo preparada para una integracion real. Mientras tanto, te deja el pedido ordenado y el siguiente paso bien marcado.</p>
+            <h2>Datos de pago</h2>
           </div>
 
           <span class="secure-pill">
@@ -69,31 +68,41 @@
         <div class="payment-fields">
           <div class="payment-field">
             <label for="payerName">Nombre completo</label>
-            <input id="payerName" type="text" placeholder="Tu nombre para el checkout">
+            <input id="payerName" type="text" placeholder="Tu nombre">
           </div>
 
           <div class="payment-field">
             <label for="payerEmail">Email</label>
             <input id="payerEmail" type="email" placeholder="tu@email.com">
           </div>
+
+          <div class="payment-field full-payment-field">
+            <label for="payerPhone">Telefono opcional</label>
+            <input id="payerPhone" type="tel" placeholder="+54 9 11 1234 5678">
+          </div>
         </div>
 
-        <p class="field-note">Estos datos dejan listo el handoff hacia la pasarela o el medio de cobro que quieras integrar despues.</p>
+        <div class="shipping-methods" aria-label="Tipo de entrega">
+          <button class="shipping-method active" type="button" data-shipping-type="delivery">
+            <i data-lucide="bike"></i>
+            <span>Delivery</span>
+          </button>
+          <button class="shipping-method" type="button" data-shipping-type="correo">
+            <i data-lucide="package-check"></i>
+            <span>Correo</span>
+          </button>
+          <button class="shipping-method" type="button" data-shipping-type="retiro">
+            <i data-lucide="store"></i>
+            <span>Retiro</span>
+          </button>
+        </div>
 
         <div class="payment-methods">
           <button class="payment-method active" type="button" data-payment-method="mercadopago">
             <i data-lucide="wallet"></i>
             <div>
               <strong>Mercado Pago</strong>
-              <span>Salida rapida a un proveedor externo con cuotas y validacion segura.</span>
-            </div>
-          </button>
-
-          <button class="payment-method" type="button" data-payment-method="card">
-            <i data-lucide="credit-card"></i>
-            <div>
-              <strong>Tarjeta</strong>
-              <span>Flujo interno para debito, credito y autorizaciones dentro del sitio.</span>
+              <span>Tarjeta, debito, credito y saldo.</span>
             </div>
           </button>
 
@@ -101,19 +110,31 @@
             <i data-lucide="landmark"></i>
             <div>
               <strong>Transferencia</strong>
-              <span>Opcion manual para mostrar datos bancarios y recibir comprobantes.</span>
+              <span>Subi el comprobante para confirmar.</span>
             </div>
           </button>
         </div>
 
         <article class="payment-method-copy">
           <strong id="paymentMethodTitle">Mercado Pago</strong>
-          <p id="paymentMethodDescription">Ideal para una salida rapida a una pasarela externa con validacion segura y cuotas.</p>
-          <div class="payment-method-hint" id="paymentMethodHint">Preparado para conectar un checkout externo sin perder el resumen del pedido.</div>
+          <p id="paymentMethodDescription">Paga con Mercado Pago.</p>
+          <div class="payment-method-hint" id="paymentMethodHint">Incluye un recargo de pago.</div>
+        </article>
+
+        <article class="transfer-receipt-panel" id="transferReceiptPanel" hidden>
+          <div>
+            <strong>Comprobante de transferencia</strong>
+            <p>Adjunta el comprobante para registrar el pedido.</p>
+          </div>
+          <label class="receipt-upload">
+            <i data-lucide="upload-cloud"></i>
+            <span id="receiptFileLabel">Subir comprobante</span>
+            <input id="transferReceipt" type="file" accept="image/*,.pdf">
+          </label>
         </article>
 
         <div class="payment-login-hint" id="paymentLoginHint">
-          Si queres que la compra aparezca en tu historial, <a href="auth.html?redirect=pasarela.html">inicia sesion antes de pagar</a>.
+          Para continuar, <a href="auth.html?redirect=pasarela.html">inicia sesion</a>.
         </div>
 
         <div class="payment-footer">
@@ -126,7 +147,7 @@
         <div class="summary-head">
           <span class="eyebrow">Resumen</span>
           <h2>Pedido listo</h2>
-          <p id="checkoutMeta">Todavia no hay un pedido preparado.</p>
+          <p id="checkoutMeta">Sin productos.</p>
         </div>
 
         <div class="checkout-items" id="checkoutItems"></div>
@@ -141,11 +162,11 @@
             <strong id="checkoutDiscount">$0</strong>
           </div>
           <div class="totals-row">
-            <span>Impuestos</span>
+            <span>Recargo de pago</span>
             <strong id="checkoutTax">$0</strong>
           </div>
           <div class="summary-total">
-            <span>Total del checkout</span>
+            <span>Total</span>
             <strong id="checkoutTotal">$0</strong>
           </div>
         </section>

@@ -323,7 +323,21 @@
         tax,
         total,
         status,
+        shipping_type,
+        tracking_code,
+        payment_method,
+        payment_status,
+        payment_receipt_path,
+        mercado_pago_preference_id,
+        mercado_pago_init_point,
+        customer_phone,
         created_at,
+        updated_at,
+        order_status_history(
+          id,
+          status,
+          timestamp
+        ),
         order_items(
           id,
           product_id,

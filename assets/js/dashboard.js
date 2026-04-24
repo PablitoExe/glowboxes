@@ -156,37 +156,67 @@ function staffRoleLabel(role) {
 }
 
 function orderStatusMeta(status) {
-  const normalizedStatus = String(status || "pendiente").toLowerCase();
-
-  if (normalizedStatus === "pagado") {
-    return {
-      label: "Pagado",
-      className: "is-pagado"
-    };
-  }
-
-  if (normalizedStatus === "enviado") {
-    return {
-      label: "Enviado",
-      className: "is-enviado"
-    };
-  }
-
-  if (normalizedStatus === "cancelado") {
-    return {
-      label: "Cancelado",
-      className: "is-cancelado"
-    };
-  }
+  const meta = window.GlowOrders?.getStatusMeta
+    ? window.GlowOrders.getStatusMeta(status)
+    : { label: "Pedido recibido", colorClass: "is-process" };
 
   return {
-    label: "Pendiente",
-    className: "is-pendiente"
+    label: meta.label,
+    className: meta.colorClass || "is-process"
   };
+}
+
+function paymentMethodLabel(method) {
+  const labels = {
+    mercadopago: "Mercado Pago",
+    card: "Mercado Pago",
+    transfer: "Transferencia"
+  };
+
+  return labels[method] || "Sin metodo";
+}
+
+function paymentStatusLabel(status) {
+  const labels = {
+    pendiente: "Pendiente",
+    comprobante_cargado: "Comprobante cargado",
+    aprobado: "Aprobado",
+    rechazado: "Rechazado"
+  };
+
+  return labels[status] || "Pendiente";
+}
+
+function paymentStatusClass(status) {
+  if (status === "aprobado") return "is-done";
+  if (status === "comprobante_cargado") return "is-route";
+  if (status === "rechazado") return "is-danger";
+  return "is-process";
 }
 
 function productImage(product) {
   return String(product.image_path || "assets/img/logo.png").replace(/^img\//, "assets/img/");
+}
+
+function mergeAdminOrderItems(items) {
+  const grouped = new Map();
+
+  items.forEach(item => {
+    const identity = item.product_id || item.image || `${String(item.name || "").toLowerCase()}-${Number(item.unit_price || 0)}`;
+    const existing = grouped.get(identity);
+
+    if (existing) {
+      existing.quantity += Number(item.quantity || 0);
+      return;
+    }
+
+    grouped.set(identity, {
+      ...item,
+      quantity: Number(item.quantity || 0)
+    });
+  });
+
+  return [...grouped.values()];
 }
 
 function normalizeFinancialRow(product) {
@@ -295,6 +325,34 @@ function staffCardMarkup(member) {
 function orderCardMarkup(order) {
   const status = orderStatusMeta(order.status);
   const customerName = escapeHtml(order.customer_name || "Cliente sin nombre");
+  const shippingType = window.GlowOrders?.normalizeShippingType
+    ? window.GlowOrders.normalizeShippingType(order.shipping_type)
+    : "delivery";
+  const shippingLabel = window.GlowOrders?.shippingLabels?.[shippingType] || "Delivery";
+  const timelineMarkup = window.GlowOrders?.buildTimelineMarkup
+    ? window.GlowOrders.buildTimelineMarkup(order, escapeHtml)
+    : "";
+  const statusOptions = window.GlowOrders?.getStatusOptions
+    ? window.GlowOrders.getStatusOptions(shippingType)
+    : [];
+  const currentStatus = window.GlowOrders?.normalizeStatus
+    ? window.GlowOrders.normalizeStatus(order.status)
+    : order.status;
+  const trackingRequired = shippingType === "correo" && currentStatus === "enviado_por_correo";
+  const historyMarkup = order.history.length
+    ? order.history.slice().reverse().map(entry => {
+      const meta = window.GlowOrders?.getStatusMeta
+        ? window.GlowOrders.getStatusMeta(entry.status)
+        : { label: entry.status };
+
+      return `
+        <li>
+          <span>${escapeHtml(meta.label)}</span>
+          <time>${escapeHtml(window.GlowOrders?.formatDateTime ? window.GlowOrders.formatDateTime(entry.timestamp) : formatDashboardDate(entry.timestamp))}</time>
+        </li>
+      `;
+    }).join("")
+    : `<li><span>Sin cambios registrados</span><time>Esperando historial</time></li>`;
   const itemsMarkup = order.items.length
     ? order.items.map(item => {
       const imageMarkup = item.image
@@ -320,13 +378,16 @@ function orderCardMarkup(order) {
         <div>
           <span class="topbar-kicker">Pedido #${shortDashboardId(order.id)}</span>
           <h3>${customerName}</h3>
-          <p>${formatDashboardDate(order.created_at)} · ${order.items_count} producto${order.items_count === 1 ? "" : "s"}</p>
+          <p>${formatDashboardDate(order.created_at)} · ${shippingLabel} · ${order.items_count} producto${order.items_count === 1 ? "" : "s"}</p>
         </div>
         <div class="admin-order-head-side">
+          ${window.GlowOrders?.isOrderActive?.(order.status) ? `<span class="active-order-badge">Activo</span>` : ""}
           <span class="status-pill ${status.className}">${status.label}</span>
           <strong>${formatDashboardMoney(order.total)}</strong>
         </div>
       </div>
+
+      ${timelineMarkup}
 
       <div class="admin-order-summary">
         <div>
@@ -338,8 +399,28 @@ function orderCardMarkup(order) {
           <strong>${formatDashboardMoney(order.discount)}</strong>
         </div>
         <div>
-          <span>Impuestos</span>
+          <span>Recargo de pago</span>
           <strong>${formatDashboardMoney(order.tax)}</strong>
+        </div>
+        <div>
+          <span>Tracking</span>
+          <strong>${escapeHtml(order.tracking_code || (shippingType === "correo" ? "Pendiente" : "No aplica"))}</strong>
+        </div>
+        <div>
+          <span>Pago</span>
+          <strong>${escapeHtml(paymentMethodLabel(order.payment_method))}</strong>
+        </div>
+        <div>
+          <span>Estado pago</span>
+          <strong><mark class="payment-status-pill ${paymentStatusClass(order.payment_status)}">${escapeHtml(paymentStatusLabel(order.payment_status))}</mark></strong>
+        </div>
+        <div>
+          <span>Telefono</span>
+          <strong>${escapeHtml(order.customer_phone || "No informado")}</strong>
+        </div>
+        <div>
+          <span>Comprobante</span>
+          <strong>${order.payment_receipt_path ? "Disponible" : "No cargado"}</strong>
         </div>
       </div>
 
@@ -347,12 +428,45 @@ function orderCardMarkup(order) {
         <label>
           Estado
           <select class="order-status-select" data-id="${escapeHtml(order.id)}">
-            <option value="pendiente" ${order.status === "pendiente" ? "selected" : ""}>Pendiente</option>
-            <option value="pagado" ${order.status === "pagado" ? "selected" : ""}>Pagado</option>
-            <option value="enviado" ${order.status === "enviado" ? "selected" : ""}>Enviado</option>
-            <option value="cancelado" ${order.status === "cancelado" ? "selected" : ""}>Cancelado</option>
+            ${statusOptions.map(option => `
+              <option value="${escapeHtml(option.value)}" ${currentStatus === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>
+            `).join("")}
           </select>
         </label>
+
+        <label>
+          Tipo de envio
+          <select class="order-shipping-select" data-id="${escapeHtml(order.id)}">
+            <option value="delivery" ${shippingType === "delivery" ? "selected" : ""}>Delivery</option>
+            <option value="correo" ${shippingType === "correo" ? "selected" : ""}>Correo</option>
+            <option value="retiro" ${shippingType === "retiro" ? "selected" : ""}>Retiro en local</option>
+          </select>
+        </label>
+
+        <label class="${trackingRequired ? "is-required" : ""}">
+          Codigo de seguimiento
+          <input class="order-tracking-input" data-id="${escapeHtml(order.id)}" type="text" value="${escapeHtml(order.tracking_code || "")}" placeholder="${shippingType === "correo" ? "Obligatorio para correo" : "Opcional"}">
+        </label>
+
+        <label>
+          Estado de pago
+          <select class="order-payment-status-select" data-id="${escapeHtml(order.id)}">
+            <option value="pendiente" ${order.payment_status === "pendiente" ? "selected" : ""}>Pendiente</option>
+            <option value="comprobante_cargado" ${order.payment_status === "comprobante_cargado" ? "selected" : ""}>Comprobante cargado</option>
+            <option value="aprobado" ${order.payment_status === "aprobado" ? "selected" : ""}>Aprobado</option>
+            <option value="rechazado" ${order.payment_status === "rechazado" ? "selected" : ""}>Rechazado</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="admin-order-actions">
+        ${order.payment_receipt_path ? `<button class="open-receipt" type="button" data-path="${escapeHtml(order.payment_receipt_path)}">Ver comprobante</button>` : ""}
+        <button class="delete-order" type="button" data-id="${escapeHtml(order.id)}">Borrar pedido</button>
+      </div>
+
+      <div class="admin-order-history">
+        <h4>Historial de cambios</h4>
+        <ul>${historyMarkup}</ul>
       </div>
 
       <div class="admin-order-items">
@@ -685,7 +799,7 @@ async function renderAdminOrders() {
     adminOrders.innerHTML = `<p class="loaded-product-empty">Supabase no esta configurado.</p>`;
     adminOrdersCount.textContent = "0 pedidos";
     if (adminOrdersTotal) adminOrdersTotal.textContent = "0 pedidos";
-    if (adminOrdersPending) adminOrdersPending.textContent = "0 pendientes";
+    if (adminOrdersPending) adminOrdersPending.textContent = "0 activos";
     if (adminOrdersRevenue) adminOrdersRevenue.textContent = formatDashboardMoney(0);
     return;
   }
@@ -700,7 +814,19 @@ async function renderAdminOrders() {
       tax,
       total,
       status,
+      shipping_type,
+      tracking_code,
+      payment_method,
+      payment_status,
+      payment_receipt_path,
+      customer_phone,
       created_at,
+      updated_at,
+      order_status_history(
+        id,
+        status,
+        timestamp
+      ),
       order_items(
         id,
         product_id,
@@ -716,7 +842,7 @@ async function renderAdminOrders() {
     adminOrders.innerHTML = `<p class="loaded-product-empty">No pudimos cargar los pedidos. Si acabas de sumar esta funcion, ejecuta el SQL nuevo en Supabase.</p>`;
     adminOrdersCount.textContent = "0 pedidos";
     if (adminOrdersTotal) adminOrdersTotal.textContent = "0 pedidos";
-    if (adminOrdersPending) adminOrdersPending.textContent = "0 pendientes";
+    if (adminOrdersPending) adminOrdersPending.textContent = "0 activos";
     if (adminOrdersRevenue) adminOrdersRevenue.textContent = formatDashboardMoney(0);
     return;
   }
@@ -738,19 +864,31 @@ async function renderAdminOrders() {
   }
 
   loadedOrderCache = (orders || []).map(order => {
-    const items = Array.isArray(order.order_items)
+    const items = mergeAdminOrderItems(Array.isArray(order.order_items)
       ? order.order_items.map(item => ({
         id: item.id,
+        product_id: item.product_id ? String(item.product_id) : null,
         name: item.products?.name || `Producto ${shortDashboardId(item.product_id)}`,
         quantity: Number(item.quantity || 0),
         unit_price: Number(item.unit_price || 0),
         image: productImage({ image_path: item.products?.image_path || "" })
       }))
-      : [];
+      : []);
 
     return {
       ...order,
-      status: String(order.status || "pendiente").toLowerCase(),
+      status: window.GlowOrders?.normalizeStatus
+        ? window.GlowOrders.normalizeStatus(order.status)
+        : String(order.status || "pedido_recibido").toLowerCase(),
+      shipping_type: window.GlowOrders?.normalizeShippingType
+        ? window.GlowOrders.normalizeShippingType(order.shipping_type)
+        : "delivery",
+      tracking_code: order.tracking_code || "",
+      payment_method: order.payment_method || "mercadopago",
+      payment_status: order.payment_status || "pendiente",
+      payment_receipt_path: order.payment_receipt_path || "",
+      customer_phone: order.customer_phone || "",
+      history: window.GlowOrders?.historyFor ? window.GlowOrders.historyFor(order) : [],
       subtotal: Number(order.subtotal || 0),
       discount: Number(order.discount || 0),
       tax: Number(order.tax || 0),
@@ -763,7 +901,11 @@ async function renderAdminOrders() {
     };
   });
 
-  const pendingOrders = loadedOrderCache.filter(order => order.status === "pendiente").length;
+  const pendingOrders = loadedOrderCache.filter(order => {
+    return window.GlowOrders?.isOrderActive
+      ? window.GlowOrders.isOrderActive(order.status)
+      : order.status !== "entregado_completado";
+  }).length;
   const revenue = loadedOrderCache.reduce((sum, order) => sum + order.total, 0);
 
   adminOrdersCount.textContent = `${loadedOrderCache.length} pedido${loadedOrderCache.length === 1 ? "" : "s"}`;
@@ -771,7 +913,7 @@ async function renderAdminOrders() {
     adminOrdersTotal.textContent = `${loadedOrderCache.length} pedido${loadedOrderCache.length === 1 ? "" : "s"}`;
   }
   if (adminOrdersPending) {
-    adminOrdersPending.textContent = `${pendingOrders} pendiente${pendingOrders === 1 ? "" : "s"}`;
+    adminOrdersPending.textContent = `${pendingOrders} activo${pendingOrders === 1 ? "" : "s"}`;
   }
   if (adminOrdersRevenue) {
     adminOrdersRevenue.textContent = formatDashboardMoney(revenue);
@@ -1060,9 +1202,20 @@ async function deleteStaffMember(staffId) {
 async function updateOrderStatus(orderId, nextStatus) {
   if (!window.GlowDB?.client) return;
 
+  const order = loadedOrderCache.find(item => item.id === orderId);
+  const shippingType = window.GlowOrders?.normalizeShippingType
+    ? window.GlowOrders.normalizeShippingType(order?.shipping_type)
+    : "delivery";
+
+  if (shippingType === "correo" && nextStatus === "enviado_por_correo" && !String(order?.tracking_code || "").trim()) {
+    alert("Para marcar un pedido de correo como enviado, primero carga el codigo de seguimiento.");
+    await renderAdminOrders();
+    return;
+  }
+
   const { error } = await window.GlowDB.client
     .from("orders")
-    .update({ status: nextStatus })
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
     .eq("id", orderId);
 
   if (error) {
@@ -1072,6 +1225,154 @@ async function updateOrderStatus(orderId, nextStatus) {
   }
 
   await renderAdminOrders();
+  showOrderToast("Estado del pedido actualizado.");
+}
+
+async function updateOrderShippingType(orderId, shippingType) {
+  if (!window.GlowDB?.client) return;
+
+  const normalizedType = window.GlowOrders?.normalizeShippingType
+    ? window.GlowOrders.normalizeShippingType(shippingType)
+    : shippingType;
+  const order = loadedOrderCache.find(item => item.id === orderId);
+  const nextStatus = "pedido_recibido";
+  const { error } = await window.GlowDB.client
+    .from("orders")
+    .update({
+      shipping_type: normalizedType,
+      status: nextStatus,
+      tracking_code: normalizedType === "correo" ? order?.tracking_code || null : null,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    alert(`No se pudo actualizar el tipo de envio: ${error.message}`);
+    console.error(error);
+    return;
+  }
+
+  await renderAdminOrders();
+  showOrderToast("Tipo de envio actualizado.");
+}
+
+async function updateOrderTracking(orderId, trackingCode) {
+  if (!window.GlowDB?.client) return;
+
+  const { error } = await window.GlowDB.client
+    .from("orders")
+    .update({
+      tracking_code: String(trackingCode || "").trim() || null,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    alert(`No se pudo guardar el tracking: ${error.message}`);
+    console.error(error);
+    return;
+  }
+
+  await renderAdminOrders();
+  showOrderToast("Tracking guardado.");
+}
+
+async function updateOrderPaymentStatus(orderId, paymentStatus) {
+  if (!window.GlowDB?.client) return;
+
+  const { error } = await window.GlowDB.client
+    .from("orders")
+    .update({
+      payment_status: paymentStatus,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    alert(`No se pudo actualizar el estado de pago: ${error.message}`);
+    console.error(error);
+    return;
+  }
+
+  await renderAdminOrders();
+  showOrderToast("Estado de pago actualizado.");
+}
+
+async function deleteOrder(orderId) {
+  if (!window.GlowDB?.client) return;
+
+  const order = loadedOrderCache.find(item => item.id === orderId);
+  const label = order ? `#${shortDashboardId(order.id)} de ${order.customer_name}` : "seleccionado";
+  const shouldDelete = confirm(`Seguro que queres borrar el pedido ${label}? Esta accion elimina tambien sus items e historial.`);
+
+  if (!shouldDelete) return;
+
+  const { error } = await window.GlowDB.client
+    .from("orders")
+    .delete()
+    .eq("id", orderId);
+
+  if (error) {
+    alert(`No se pudo borrar el pedido: ${error.message}`);
+    console.error(error);
+    return;
+  }
+
+  await renderAdminOrders();
+  showOrderToast("Pedido borrado.");
+}
+
+async function openPaymentReceipt(path) {
+  if (!window.GlowDB?.client || !path) return;
+
+  const { data, error } = await window.GlowDB.client.storage
+    .from("payment-receipts")
+    .createSignedUrl(path, 300);
+
+  if (error || !data?.signedUrl) {
+    alert(`No se pudo abrir el comprobante: ${error?.message || "URL no disponible"}`);
+    console.error(error);
+    return;
+  }
+
+  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+}
+
+function showOrderToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "order-toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.classList.add("show"), 20);
+  window.setTimeout(() => {
+    toast.classList.remove("show");
+    window.setTimeout(() => toast.remove(), 250);
+  }, 3000);
+}
+
+function startAdminOrderRealtime() {
+  if (!window.GlowDB?.client) return;
+
+  window.GlowDB.client
+    .channel("admin-orders-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, async (payload) => {
+      const shortId = String(payload?.new?.id || payload?.old?.id || "").replace(/-/g, "").slice(0, 8).toUpperCase();
+      const paymentStatus = payload?.new?.payment_status;
+
+      if (payload.eventType === "INSERT") {
+        showOrderToast(`Nuevo pedido${shortId ? ` #${shortId}` : ""}.`);
+      } else if (paymentStatus === "aprobado" && payload?.old?.payment_status !== "aprobado") {
+        showOrderToast(`Pago aprobado${shortId ? ` #${shortId}` : ""}.`);
+      } else if (paymentStatus === "comprobante_cargado" && payload?.old?.payment_status !== "comprobante_cargado") {
+        showOrderToast(`Comprobante recibido${shortId ? ` #${shortId}` : ""}.`);
+      }
+
+      await renderAdminOrders();
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "order_status_history" }, async () => {
+      await renderAdminOrders();
+    })
+    .subscribe();
 }
 
 menuButton.addEventListener("click", () => {
@@ -1429,9 +1730,48 @@ staffMembers?.addEventListener("click", async (event) => {
 
 adminOrders?.addEventListener("change", async (event) => {
   const select = event.target.closest(".order-status-select");
-  if (!select) return;
+  if (select) {
+    await updateOrderStatus(select.dataset.id, select.value);
+    return;
+  }
 
-  await updateOrderStatus(select.dataset.id, select.value);
+  const shippingSelect = event.target.closest(".order-shipping-select");
+  if (shippingSelect) {
+    await updateOrderShippingType(shippingSelect.dataset.id, shippingSelect.value);
+    return;
+  }
+
+  const trackingInput = event.target.closest(".order-tracking-input");
+  if (trackingInput) {
+    await updateOrderTracking(trackingInput.dataset.id, trackingInput.value);
+    return;
+  }
+
+  const paymentStatusSelect = event.target.closest(".order-payment-status-select");
+  if (paymentStatusSelect) {
+    await updateOrderPaymentStatus(paymentStatusSelect.dataset.id, paymentStatusSelect.value);
+  }
+});
+
+adminOrders?.addEventListener("click", async (event) => {
+  const receiptButton = event.target.closest(".open-receipt");
+  if (receiptButton) {
+    await openPaymentReceipt(receiptButton.dataset.path);
+    return;
+  }
+
+  const deleteButton = event.target.closest(".delete-order");
+  if (!deleteButton) return;
+
+  await deleteOrder(deleteButton.dataset.id);
+});
+
+adminOrders?.addEventListener("keydown", async (event) => {
+  const trackingInput = event.target.closest(".order-tracking-input");
+  if (!trackingInput || event.key !== "Enter") return;
+
+  event.preventDefault();
+  await updateOrderTracking(trackingInput.dataset.id, trackingInput.value);
 });
 
 sectionLinks.forEach(link => {
@@ -1454,6 +1794,7 @@ async function initDashboard() {
   showDashboardSection("cargar-productos");
   resetProductForm();
   resetStaffForm();
+  startAdminOrderRealtime();
 }
 
 initDashboard();

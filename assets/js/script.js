@@ -557,7 +557,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function productKey(product) {
     if (!product) return "";
-    return String(product.id || productName(product)).trim();
+    return String(product.id || normalizeAssetPath(product.img) || productName(product)).trim();
   }
 
   function productPriceValue(product) {
@@ -613,7 +613,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function loadGuestCart() {
-    return readStoredCollection(guestCartStorageKey)
+    return mergeCartItems(readStoredCollection(guestCartStorageKey)
       .map(item => ({
         key: String(item?.key || "").trim(),
         productId: item?.productId ? String(item.productId) : null,
@@ -622,7 +622,29 @@ window.addEventListener("DOMContentLoaded", () => {
         quantity: Math.max(1, Number(item?.quantity || 1)),
         image: item?.image ? normalizeAssetPath(item.image) : null
       }))
-      .filter(item => item.key && item.name);
+      .filter(item => item.key && item.name));
+  }
+
+  function mergeCartItems(items) {
+    const grouped = new Map();
+
+    items.forEach(item => {
+      const identity = item.productId || item.image || `${normalizeText(item.name)}-${Number(item.priceValue || 0)}`;
+      const existing = grouped.get(identity);
+
+      if (existing) {
+        existing.quantity += Math.max(1, Number(item.quantity || 1));
+        return;
+      }
+
+      grouped.set(identity, {
+        ...item,
+        key: item.productId || item.key || identity,
+        quantity: Math.max(1, Number(item.quantity || 1))
+      });
+    });
+
+    return [...grouped.values()];
   }
 
   function persistGuestState() {
@@ -781,6 +803,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    cart = mergeCartItems(cart);
     persistGuestState();
     renderCart();
     animateAddToCart();
@@ -897,6 +920,7 @@ window.addEventListener("DOMContentLoaded", () => {
       quantity: Math.max(1, Number(item.quantity || 1)),
       image: normalizeAssetPath(item.products?.image_path)
     }));
+    cart = mergeCartItems(cart);
 
     renderWishlistCount();
     renderCart();
@@ -910,14 +934,14 @@ window.addEventListener("DOMContentLoaded", () => {
       return null;
     }
 
-    const items = cart.map(item => ({
+    const items = mergeCartItems(cart.map(item => ({
       key: String(item.key || "").trim(),
       productId: item.productId ? String(item.productId) : null,
       name: String(item.name || "Producto").trim(),
       priceValue: Number(item.priceValue || 0),
       quantity: Math.max(1, Number(item.quantity || 1)),
       image: item.image ? normalizeAssetPath(item.image) : null
-    })).filter(item => item.key && item.name);
+    })).filter(item => item.key && item.name));
 
     if (!items.length) {
       return null;
