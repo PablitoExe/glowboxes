@@ -4,11 +4,18 @@ const authTabsPill = document.querySelector(".auth-tabs-pill");
 const forms = document.querySelectorAll(".auth-form");
 const loginForm = document.getElementById("loginForm");
 const registerForm = document.getElementById("registerForm");
+const googleAuthButton = document.getElementById("googleAuthButton");
 const authMessage = document.getElementById("authMessage");
 const defaultAdminRedirect = "dashboard.html";
 const defaultCustomerRedirect = "mi-cuenta.html";
 const defaultStoreRedirect = "index.html";
 const defaultCheckoutRedirect = "pasarela.html";
+const allowedRedirectTargets = [
+  defaultAdminRedirect,
+  defaultCustomerRedirect,
+  defaultStoreRedirect,
+  defaultCheckoutRedirect
+];
 
 function setMessage(text, type = "") {
   authMessage.textContent = text;
@@ -19,6 +26,17 @@ function setLoading(form, isLoading) {
   const button = form.querySelector("button");
   button.disabled = isLoading;
   button.textContent = isLoading ? "Procesando..." : button.dataset.defaultText;
+}
+
+function setGoogleLoading(isLoading) {
+  if (!googleAuthButton) return;
+
+  const label = googleAuthButton.querySelector(".google-auth-label");
+  googleAuthButton.disabled = isLoading;
+
+  if (label) {
+    label.textContent = isLoading ? "Conectando..." : "Continuar con Google";
+  }
 }
 
 function getSafeRedirectTarget(allowedPaths, fallback) {
@@ -46,6 +64,17 @@ function getSafeRedirectTarget(allowedPaths, fallback) {
 
 function redirectTo(target) {
   window.location.href = target;
+}
+
+function getAuthCallbackUrl() {
+  const redirectTarget = getSafeRedirectTarget(allowedRedirectTargets, "");
+  const callbackUrl = new URL("auth.html", window.location.href);
+
+  if (redirectTarget) {
+    callbackUrl.searchParams.set("redirect", redirectTarget);
+  }
+
+  return callbackUrl.toString();
 }
 
 function moveAuthTabsPill(activeTab) {
@@ -216,6 +245,32 @@ loginForm.addEventListener("submit", async (event) => {
     defaultStoreRedirect,
     defaultCheckoutRedirect
   ], defaultCustomerRedirect)), 650);
+});
+
+googleAuthButton?.addEventListener("click", async () => {
+  if (!window.GlowDB?.client) {
+    setMessage("Supabase no esta configurado.", "error");
+    return;
+  }
+
+  setGoogleLoading(true);
+  setMessage("");
+
+  const { error } = await window.GlowDB.client.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: getAuthCallbackUrl(),
+      queryParams: {
+        access_type: "offline",
+        prompt: "select_account"
+      }
+    }
+  });
+
+  if (error) {
+    setGoogleLoading(false);
+    setMessage(`No se pudo iniciar con Google: ${error.message}`, "error");
+  }
 });
 
 registerForm.addEventListener("submit", async (event) => {

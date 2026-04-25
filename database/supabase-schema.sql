@@ -111,6 +111,9 @@ create table if not exists public.orders (
   payment_method text not null default 'mercadopago',
   payment_status text not null default 'pendiente',
   payment_receipt_path text,
+  invoice_email_sent_at timestamptz,
+  invoice_email_to text,
+  invoice_email_provider_id text,
   mercado_pago_preference_id text,
   mercado_pago_init_point text,
   customer_phone text,
@@ -144,6 +147,15 @@ add column if not exists payment_status text not null default 'pendiente';
 
 alter table public.orders
 add column if not exists payment_receipt_path text;
+
+alter table public.orders
+add column if not exists invoice_email_sent_at timestamptz;
+
+alter table public.orders
+add column if not exists invoice_email_to text;
+
+alter table public.orders
+add column if not exists invoice_email_provider_id text;
 
 alter table public.orders
 add column if not exists mercado_pago_preference_id text;

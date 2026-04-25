@@ -2,8 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -11,14 +12,17 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   });
 }
 
 function mapPaymentStatus(status: string) {
   if (status === "approved") return "aprobado";
-  if (status === "rejected" || status === "cancelled" || status === "refunded" || status === "charged_back") return "rechazado";
+  if (
+    status === "rejected" || status === "cancelled" || status === "refunded" ||
+    status === "charged_back"
+  ) return "rechazado";
   return "pendiente";
 }
 
@@ -45,7 +49,7 @@ Deno.serve(async (request) => {
 
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser(authToken);
 
   if (userError || !user) {
@@ -60,22 +64,31 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Faltan datos del pago." }, 400);
   }
 
-  const mercadoPagoResponse = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
+  const mercadoPagoResponse = await fetch(
+    `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
   const payment = await mercadoPagoResponse.json();
 
   if (!mercadoPagoResponse.ok) {
-    return jsonResponse({ error: payment?.message || "No pudimos consultar el pago.", details: payment }, 502);
+    return jsonResponse({
+      error: payment?.message || "No pudimos consultar el pago.",
+      details: payment,
+    }, 502);
   }
 
   const externalReference = String(payment.external_reference || "");
 
   if (externalReference !== orderId) {
-    return jsonResponse({ error: "El pago no corresponde a este pedido." }, 403);
+    return jsonResponse(
+      { error: "El pago no corresponde a este pedido." },
+      403,
+    );
   }
 
   const { data: order, error: orderError } = await supabase
@@ -89,14 +102,16 @@ Deno.serve(async (request) => {
   }
 
   if (order.user_id !== user.id) {
-    return jsonResponse({ error: "No podes confirmar un pedido de otra cuenta." }, 403);
+    return jsonResponse({
+      error: "No podes confirmar un pedido de otra cuenta.",
+    }, 403);
   }
 
   const nextPaymentStatus = mapPaymentStatus(String(payment.status || ""));
 
   const orderUpdate: Record<string, string> = {
     payment_status: nextPaymentStatus,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   };
 
   if (nextPaymentStatus === "aprobado") {
@@ -114,34 +129,73 @@ Deno.serve(async (request) => {
 
   let shipment: unknown = null;
   let shipmentError: string | null = null;
+  let invoice: unknown = null;
+  let invoiceError: string | null = null;
 
   if (nextPaymentStatus === "aprobado") {
     const internalSecret = Deno.env.get("SHIPPING_INTERNAL_SECRET") || "";
 
     if (internalSecret) {
       try {
-        const shipmentResponse = await fetch(`${supabaseUrl}/functions/v1/create-shipment`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${serviceRoleKey}`,
-            "Content-Type": "application/json",
-            "x-internal-secret": internalSecret
+        const invoiceResponse = await fetch(
+          `${supabaseUrl}/functions/v1/send-order-invoice`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+              "x-internal-secret": internalSecret,
+            },
+            body: JSON.stringify({ orderId }),
           },
-          body: JSON.stringify({ orderId })
-        });
+        );
+
+        const invoiceBody = await invoiceResponse.json().catch(() => null);
+
+        if (!invoiceResponse.ok) {
+          invoiceError = invoiceBody?.error ||
+            "No pudimos enviar el comprobante automaticamente.";
+        } else {
+          invoice = invoiceBody;
+        }
+      } catch (error) {
+        invoiceError = error instanceof Error
+          ? error.message
+          : "No pudimos enviar el comprobante automaticamente.";
+      }
+
+      try {
+        const shipmentResponse = await fetch(
+          `${supabaseUrl}/functions/v1/create-shipment`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+              "x-internal-secret": internalSecret,
+            },
+            body: JSON.stringify({ orderId }),
+          },
+        );
 
         const shipmentBody = await shipmentResponse.json().catch(() => null);
 
         if (!shipmentResponse.ok) {
-          shipmentError = shipmentBody?.error || "No pudimos crear el envio automaticamente.";
+          shipmentError = shipmentBody?.error ||
+            "No pudimos crear el envio automaticamente.";
         } else {
           shipment = shipmentBody;
         }
       } catch (error) {
-        shipmentError = error instanceof Error ? error.message : "No pudimos crear el envio automaticamente.";
+        shipmentError = error instanceof Error
+          ? error.message
+          : "No pudimos crear el envio automaticamente.";
       }
     } else {
-      shipmentError = "SHIPPING_INTERNAL_SECRET no esta configurado; envio automatico omitido.";
+      shipmentError =
+        "SHIPPING_INTERNAL_SECRET no esta configurado; envio automatico omitido.";
+      invoiceError =
+        "SHIPPING_INTERNAL_SECRET no esta configurado; comprobante automatico omitido.";
     }
   }
 
@@ -150,7 +204,9 @@ Deno.serve(async (request) => {
     paymentId,
     mercadoPagoStatus: payment.status,
     paymentStatus: nextPaymentStatus,
+    invoice,
+    invoiceError,
     shipment,
-    shipmentError
+    shipmentError,
   });
 });

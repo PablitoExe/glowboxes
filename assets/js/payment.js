@@ -564,6 +564,20 @@ async function createMercadoPagoPreference(orderId) {
   return { data, error: null };
 }
 
+async function sendInvoiceEmail(orderId) {
+  if (!window.GlowDB?.sendOrderInvoice) {
+    return { error: "El envio de comprobantes no esta disponible." };
+  }
+
+  const { error } = await window.GlowDB.sendOrderInvoice(orderId);
+
+  if (error) {
+    console.error("No pudimos enviar el comprobante por email:", error);
+  }
+
+  return { error: error || null };
+}
+
 async function initPaymentPage() {
   if (typeof lucide !== "undefined") {
     lucide.createIcons();
@@ -656,6 +670,14 @@ paymentSubmit.addEventListener("click", async () => {
   }
 
   if (activePaymentMethod === "transfer") {
+    const invoiceResult = await sendInvoiceEmail(savedOrder.id);
+
+    if (invoiceResult?.error) {
+      sessionStorage.setItem("glow-invoice-error", invoiceResult.error);
+    } else {
+      sessionStorage.removeItem("glow-invoice-error");
+    }
+
     const orderId = encodeURIComponent(savedOrder.id);
     window.location.href = `mi-cuenta.html?payment=transfer_review&order=${orderId}#compras`;
     return;

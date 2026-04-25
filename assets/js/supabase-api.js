@@ -401,6 +401,19 @@
     return { data, error: error?.message || null };
   }
 
+  async function sendOrderInvoice(orderId, options = {}) {
+    if (!client) return { data: null, error: "Supabase no configurado" };
+
+    const { data, error } = await client.functions.invoke("send-order-invoice", {
+      body: {
+        orderId,
+        force: Boolean(options.force)
+      }
+    });
+
+    return { data, error: error?.message || data?.error || null };
+  }
+
   window.GlowDB = {
     client,
     isConfigured: Boolean(client),
@@ -421,6 +434,7 @@
     listOwnOrders,
     createShipment,
     getTracking,
-    getShippingLabel
+    getShippingLabel,
+    sendOrderInvoice
   };
 })();

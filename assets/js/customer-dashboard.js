@@ -403,6 +403,13 @@ async function confirmMercadoPagoReturn(params) {
   }
 
   if (data?.paymentStatus === "aprobado") {
+    if (data?.invoiceError) {
+      return {
+        type: "warning",
+        message: `Pago aprobado, pero no pudimos enviar el comprobante: ${data.invoiceError}`
+      };
+    }
+
     return {
       type: "success",
       message: "Pago aprobado. Ya podes ver tu pedido."
@@ -426,7 +433,15 @@ async function handlePaymentReturn() {
   returnNoticeShown = true;
 
   if (payment === "transfer_review") {
-    showCustomerToast("Pedido registrado. Nuestro equipo va a revisar que el pago haya llegado.", 5600);
+    const invoiceError = sessionStorage.getItem("glow-invoice-error");
+    sessionStorage.removeItem("glow-invoice-error");
+
+    showCustomerToast(
+      invoiceError
+        ? `Pedido registrado, pero no pudimos enviar el comprobante: ${invoiceError}`
+        : "Pedido registrado. Nuestro equipo va a revisar que el pago haya llegado.",
+      invoiceError ? 7200 : 5600
+    );
     focusOrderFromUrl();
     return;
   }
