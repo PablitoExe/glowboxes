@@ -703,6 +703,10 @@ button {
     padding: 16px;
   }
 
+  .payment-logo img {
+    width: 150px;
+  }
+
   .payment-topbar,
   .payment-panel {
     border-radius: 28px;
@@ -737,18 +741,96 @@ button {
 }
 
 @media (max-width: 560px) {
+  .payment-shell {
+    padding: 10px;
+  }
+
   .payment-topbar-copy h1,
   .panel-head h2,
   .summary-head h2 {
-    font-size: 2.2rem;
+    font-size: clamp(2rem, 13vw, 2.7rem);
+    letter-spacing: -0.04em;
+    line-height: 0.98;
   }
 
   .payment-topbar,
   .payment-panel {
-    padding: 22px;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .payment-topbar-copy p,
+  .panel-head p,
+  .summary-head p,
+  .payment-method-copy p {
+    line-height: 1.5;
   }
 
   .payment-account {
     grid-template-columns: 1fr;
+  }
+
+  .payment-actions,
+  .payment-actions a,
+  .payment-account a,
+  .ghost-button,
+  .primary-button {
+    width: 100%;
+  }
+
+  .panel-head {
+    display: grid;
+  }
+
+  .secure-pill {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .shipping-carriers {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-method,
+  .payment-method-copy,
+  .transfer-receipt-panel,
+  .summary-totals,
+  .checkout-item {
+    border-radius: 18px;
+  }
+
+  .checkout-item {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .checkout-item img,
+  .checkout-item-placeholder {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+  }
+
+  .checkout-item-total {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 380px) {
+  .payment-topbar,
+  .payment-panel {
+    padding: 14px;
+  }
+
+  .eyebrow,
+  .secure-pill,
+  .account-chip,
+  .totals-label {
+    max-width: 100%;
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
   }
 }

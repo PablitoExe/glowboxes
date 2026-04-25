@@ -256,7 +256,8 @@ input {
 @media (max-width: 640px) {
   .auth-page {
     align-items: end;
-    padding-top: 120px;
+    padding: 108px 12px 14px;
+    min-height: 100svh;
   }
 
   .auth-logo {
@@ -264,7 +265,46 @@ input {
     top: 18px;
   }
 
+  .auth-logo img {
+    width: 142px;
+  }
+
   .auth-card {
-    padding: 22px;
+    width: 100%;
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .auth-heading h1 {
+    font-size: clamp(36px, 12vw, 46px);
+    line-height: 1;
+  }
+
+  .auth-heading p {
+    line-height: 1.45;
+  }
+
+  .auth-tabs button {
+    height: 40px;
+  }
+
+  .auth-form input,
+  .auth-form button,
+  .google-auth-button {
+    height: 48px;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-page {
+    padding-top: 94px;
+  }
+
+  .auth-card {
+    padding: 16px;
+  }
+
+  .auth-heading h1 {
+    font-size: 34px;
   }
 }

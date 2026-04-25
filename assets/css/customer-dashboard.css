@@ -1080,6 +1080,8 @@ button {
 
   .hero-copy h2 {
     font-size: clamp(34px, 13vw, 56px);
+    letter-spacing: -0.04em;
+    line-height: 0.96;
   }
 
   .metrics-grid,
@@ -1115,5 +1117,109 @@ button {
 
   .order-history li {
     display: grid;
+  }
+}
+
+@media (max-width: 520px) {
+  .customer-shell {
+    padding: 10px;
+  }
+
+  .customer-sidebar,
+  .customer-topbar,
+  .hero-panel,
+  .orders-panel,
+  .metric-card,
+  .order-card,
+  .empty-state {
+    border-radius: 22px;
+  }
+
+  .customer-sidebar,
+  .customer-topbar,
+  .hero-panel,
+  .orders-panel {
+    padding: 18px;
+  }
+
+  .sidebar-logo img {
+    width: 142px;
+  }
+
+  .profile-top {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .profile-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    font-size: 22px;
+  }
+
+  .profile-copy strong {
+    font-size: 22px;
+    line-height: 1.02;
+  }
+
+  .sidebar-nav a {
+    min-height: 46px;
+  }
+
+  .customer-topbar h1 {
+    font-size: clamp(30px, 12vw, 42px);
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+  }
+
+  .hero-highlight {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .hero-highlight-total {
+    font-size: clamp(36px, 14vw, 48px);
+  }
+
+  .filter-group {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    scrollbar-width: thin;
+  }
+
+  .filter-chip {
+    flex: 0 0 auto;
+  }
+
+  .order-card {
+    padding: 18px;
+  }
+
+  .order-card-head h3,
+  .empty-state h3 {
+    font-size: 26px;
+  }
+
+  .order-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .order-step {
+    grid-template-columns: 42px minmax(0, 1fr);
+    justify-items: start;
+    text-align: left;
+  }
+
+  .order-step-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
+  .order-step strong {
+    max-width: none;
+    text-align: left;
   }
 }

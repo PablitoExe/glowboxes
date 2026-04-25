@@ -11,6 +11,15 @@ overflow-x: hidden;
 transition: background 0.6s ease;
 }
 
+* {
+box-sizing: border-box;
+}
+
+img,
+svg {
+max-width: 100%;
+}
+
 body.is-preloading {
 overflow: hidden;
 }
@@ -147,7 +156,7 @@ width: 100%;
 display: flex;
 flex-direction: column;
 justify-content: flex-start;
-height: 100vh;
+min-height: 100svh;
 overflow: hidden;
 }
 
@@ -1696,10 +1705,54 @@ transform: scale(1.1);
 }
 
 @media (max-width: 1180px) {
+  .navbar {
+    padding-inline: 28px;
+    gap: 16px;
+  }
+
+  .logo img {
+    height: 48px;
+  }
+
+  .nav a {
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+
+  .hero {
+    padding-inline: 42px;
+    gap: 32px;
+  }
+
+  .hero-left {
+    flex-basis: clamp(360px, 42vw, 470px);
+  }
+
   .btn {
     min-width: 220px;
     height: 46px;
     font-size: 15px;
+  }
+}
+
+@media (max-width: 1020px) {
+  .nav-center {
+    display: none;
+  }
+
+  .navbar {
+    align-items: flex-start;
+  }
+
+  .icons {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: min(54vw, 360px);
+  }
+
+  .search-box.active {
+    width: min(190px, calc(100vw - 180px));
+    flex-basis: min(190px, calc(100vw - 180px));
   }
 }
 
@@ -1721,7 +1774,7 @@ display: none;
 
 .hero {
 flex-direction: column;
-align-items: flex-start;
+align-items: stretch;
 padding: 28px 20px 40px;
 gap: 20px;
 }
@@ -1734,8 +1787,15 @@ padding-top: 0;
 margin-top: 8px;
 }
 
+.title-window {
+min-height: auto;
+overflow: visible;
+}
+
 .hero p {
 margin-bottom: 28px;
+max-width: 620px;
+line-height: 1.25;
 }
 
 .social-links {
@@ -1751,6 +1811,7 @@ margin-top: 34px;
 width: 100%;
 min-height: 500px;
 --slider-control-bottom: 26px;
+align-self: auto;
 }
 
 .product-stage {
@@ -1778,5 +1839,210 @@ transform: none;
 right: 20px;
 bottom: var(--slider-control-bottom);
 transform: none;
+}
+}
+
+@media (max-width: 640px) {
+.navbar {
+padding: 14px 14px 0;
+min-height: 64px;
+gap: 10px;
+align-items: center;
+}
+
+.logo img {
+height: 42px;
+}
+
+.icons {
+gap: 6px;
+max-width: calc(100vw - 128px);
+}
+
+.icon,
+.search-box {
+width: 34px;
+height: 34px;
+flex-basis: 34px;
+}
+
+.login-button {
+width: 34px;
+height: 34px;
+padding: 0;
+gap: 0;
+}
+
+.login-button span {
+display: none;
+}
+
+.search-box.active {
+position: absolute;
+left: 14px;
+right: 14px;
+top: 66px;
+z-index: 2500;
+width: auto;
+height: 42px;
+flex-basis: auto;
+border-radius: 999px;
+}
+
+.search-box.active input {
+width: 100%;
+min-width: 0;
+}
+
+.cart-dropdown {
+top: 68px;
+right: 14px;
+left: 14px;
+width: auto;
+max-height: min(70vh, 440px);
+}
+
+.hero {
+padding: 26px 16px 34px;
+}
+
+.tag {
+height: 30px;
+margin-bottom: 16px;
+font-size: 11px;
+max-width: 100%;
+}
+
+.hero h1 {
+font-size: clamp(38px, 13vw, 52px);
+line-height: 0.98;
+overflow-wrap: anywhere;
+}
+
+.hero h1 span {
+font-size: clamp(32px, 10.5vw, 44px);
+}
+
+.hero p {
+font-size: 14px;
+margin-bottom: 24px;
+}
+
+.hero-actions {
+align-items: stretch;
+flex-direction: column;
+gap: 18px;
+}
+
+.btn {
+width: 100%;
+min-width: 0;
+height: 48px;
+padding-inline: 18px;
+font-size: 14px;
+box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.15);
+}
+
+.price-row {
+width: 100%;
+justify-content: space-between;
+}
+
+.social-links {
+gap: 8px;
+margin-top: 26px;
+}
+
+.social-links a,
+.wishlist-add {
+width: 40px;
+height: 40px;
+}
+
+.hero-right {
+min-height: 420px;
+}
+
+.product-stage {
+height: 420px;
+}
+
+.product-img {
+left: 48%;
+height: min(390px, 58vh);
+max-width: 78vw;
+}
+
+.product-img-preview {
+left: 82%;
+height: min(270px, 42vh);
+max-width: 42vw;
+opacity: 0.42;
+}
+
+.product-img-next-preview {
+display: none;
+}
+
+.glow {
+width: 320px;
+height: 320px;
+}
+
+.slider-controls {
+left: 16px;
+}
+
+.slider-controls button {
+width: 48px;
+height: 34px;
+}
+
+.slider-count {
+right: 16px;
+height: 34px;
+font-size: 16px;
+}
+
+.slider-count span:first-child {
+font-size: 24px;
+min-width: 30px;
+}
+
+.brands {
+padding: 20px 0;
+}
+
+.brands-group {
+gap: 34px;
+padding-right: 34px;
+}
+
+.brands img,
+.brand-slide img {
+height: 38px;
+}
+}
+
+@media (max-width: 420px) {
+.hero-right {
+min-height: 370px;
+}
+
+.product-stage {
+height: 370px;
+}
+
+.product-img {
+height: 340px;
+}
+
+.product-img-preview {
+height: 220px;
+}
+
+.slider-controls,
+.slider-count {
+bottom: 12px;
 }
 }
