@@ -35,6 +35,7 @@ create table if not exists public.products (
   price numeric(12, 2) not null default 0,
   stock integer not null default 0,
   image_path text,
+  model_path text,
   gradient_start text not null default '#ff2da0',
   gradient_end text not null default '#7b2cff',
   is_featured boolean not null default false,
@@ -47,6 +48,9 @@ create table if not exists public.product_financials (
   cost_price numeric(12, 2) not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.products
+add column if not exists model_path text;
 
 alter table public.products
 add column if not exists gradient_start text not null default '#ff2da0';
@@ -604,9 +608,8 @@ on public.orders for select
 using (public.is_admin());
 
 drop policy if exists "Users can create own orders" on public.orders;
-create policy "Users can create own orders"
-on public.orders for insert
-with check (auth.uid() = user_id);
+-- Orders are created by the create-order Edge Function so prices and totals
+-- always come from trusted product data.
 
 drop policy if exists "Dashboard can update orders" on public.orders;
 create policy "Dashboard can update orders"
@@ -654,16 +657,7 @@ using (
 );
 
 drop policy if exists "Users can create own order items" on public.order_items;
-create policy "Users can create own order items"
-on public.order_items for insert
-with check (
-  exists (
-    select 1
-    from public.orders
-    where public.orders.id = public.order_items.order_id
-      and public.orders.user_id = auth.uid()
-  )
-);
+-- Order items are created by the create-order Edge Function for the same reason.
 
 drop policy if exists "Dashboard can read order items" on public.order_items;
 create policy "Dashboard can read order items"
@@ -687,6 +681,10 @@ on conflict (name) do nothing;
 
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
+on conflict (id) do update set public = true;
+
+insert into storage.buckets (id, name, public)
+values ('product-models', 'product-models', true)
 on conflict (id) do update set public = true;
 
 insert into storage.buckets (id, name, public)
@@ -714,6 +712,27 @@ create policy "Dashboard can delete product images"
 on storage.objects for delete
 using (bucket_id = 'product-images' and public.is_admin());
 
+drop policy if exists "Public can read product models" on storage.objects;
+create policy "Public can read product models"
+on storage.objects for select
+using (bucket_id = 'product-models');
+
+drop policy if exists "Dashboard can upload product models" on storage.objects;
+create policy "Dashboard can upload product models"
+on storage.objects for insert
+with check (bucket_id = 'product-models' and public.is_admin());
+
+drop policy if exists "Dashboard can update product models" on storage.objects;
+create policy "Dashboard can update product models"
+on storage.objects for update
+using (bucket_id = 'product-models' and public.is_admin())
+with check (bucket_id = 'product-models' and public.is_admin());
+
+drop policy if exists "Dashboard can delete product models" on storage.objects;
+create policy "Dashboard can delete product models"
+on storage.objects for delete
+using (bucket_id = 'product-models' and public.is_admin());
+
 drop policy if exists "Users can upload payment receipts" on storage.objects;
 create policy "Users can upload payment receipts"
 on storage.objects for insert
@@ -726,6 +745,15 @@ with check (
 drop policy if exists "Users can read own payment receipts" on storage.objects;
 create policy "Users can read own payment receipts"
 on storage.objects for select
+using (
+  bucket_id = 'payment-receipts'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "Users can delete own payment receipts" on storage.objects;
+create policy "Users can delete own payment receipts"
+on storage.objects for delete
 using (
   bucket_id = 'payment-receipts'
   and auth.role() = 'authenticated'

@@ -19,6 +19,7 @@ const cancelProductEdit = document.getElementById("cancelProductEdit");
 const staffSubmit = document.getElementById("staffSubmit");
 const cancelStaffEdit = document.getElementById("cancelStaffEdit");
 const productImageInput = document.getElementById("productImageInput");
+const productModelInput = document.getElementById("productModelInput");
 const productCostValue = document.getElementById("productCostValue");
 const productProfitValue = document.getElementById("productProfitValue");
 const productProfitHint = document.getElementById("productProfitHint");
@@ -251,6 +252,7 @@ async function fetchAdminProducts() {
       description,
       price,
       image_path,
+      model_path,
       stock,
       is_featured,
       gradient_start,
@@ -513,6 +515,7 @@ function productCardMarkup(product) {
         <div class="loaded-product-meta">
           <span>$${formatDashboardPrice(product.price)}</span>
           <span>Stock ${product.stock ?? 0}</span>
+          <span>${product.model_path ? "3D activo" : "3D automatico"}</span>
         </div>
         <div class="loaded-product-gradient" style="--start: ${escapeHtml(product.gradient_start || "#ff2da0")}; --end: ${escapeHtml(product.gradient_end || "#7b2cff")};"></div>
         <div class="loaded-product-actions">
@@ -535,6 +538,7 @@ function resetProductForm() {
   productForm.reset();
   productForm.dataset.editingId = "";
   productForm.dataset.currentImage = "";
+  productForm.dataset.currentModel = "";
   productSubmit.textContent = "Guardar producto";
   cancelProductEdit.hidden = true;
   productImageInput.required = true;
@@ -640,12 +644,56 @@ async function uploadDashboardImage(file, folder) {
   return data.publicUrl;
 }
 
+async function uploadDashboardModel(file, folder) {
+  if (!window.GlowDB?.client || !file || file.size === 0) return null;
+
+  const safeName = file.name
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const filePath = `${folder}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await window.GlowDB.client.storage
+    .from("product-models")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.name.toLowerCase().endsWith(".gltf")
+        ? "model/gltf+json"
+        : "model/gltf-binary"
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = window.GlowDB.client.storage
+    .from("product-models")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
 function getStoragePathFromUrl(publicUrl) {
   if (!publicUrl || !window.GlowDB?.client) return null;
 
   try {
     const url = new URL(publicUrl);
     const marker = "/storage/v1/object/public/product-images/";
+    const index = url.pathname.indexOf(marker);
+    if (index === -1) return null;
+    return decodeURIComponent(url.pathname.slice(index + marker.length));
+  } catch (error) {
+    return null;
+  }
+}
+
+function getModelStoragePathFromUrl(publicUrl) {
+  if (!publicUrl || !window.GlowDB?.client) return null;
+
+  try {
+    const url = new URL(publicUrl);
+    const marker = "/storage/v1/object/public/product-models/";
     const index = url.pathname.indexOf(marker);
     if (index === -1) return null;
     return decodeURIComponent(url.pathname.slice(index + marker.length));
@@ -665,6 +713,20 @@ async function deleteDashboardImage(publicUrl) {
 
   if (error) {
     console.error("No se pudo borrar archivo de storage:", error);
+  }
+}
+
+async function deleteDashboardModel(publicUrl) {
+  const storagePath = getModelStoragePathFromUrl(publicUrl);
+  if (!storagePath || !window.GlowDB?.client) return;
+
+  const { error } = await window.GlowDB.client
+    .storage
+    .from("product-models")
+    .remove([storagePath]);
+
+  if (error) {
+    console.error("No se pudo borrar modelo 3D de storage:", error);
   }
 }
 
@@ -1074,6 +1136,7 @@ function startProductEdit(productId) {
   showDashboardSection("cargar-productos");
   productForm.dataset.editingId = product.id;
   productForm.dataset.currentImage = product.image_path || "";
+  productForm.dataset.currentModel = product.model_path || "";
   productForm.elements.name.value = product.name || "";
   productForm.elements.brand.value = product.brand_id || "";
   productForm.elements.category.value = product.category_id || "";
@@ -1178,6 +1241,10 @@ async function deleteProduct(productId) {
 
   if (product?.image_path) {
     await deleteDashboardImage(product.image_path);
+  }
+
+  if (product?.model_path) {
+    await deleteDashboardModel(product.model_path);
   }
 
   if (productForm.dataset.editingId === productId) {
@@ -1576,10 +1643,14 @@ productForm.addEventListener("submit", async (event) => {
 
   const formData = new FormData(productForm);
   const imageFile = formData.get("image");
+  const modelFile = formData.get("model");
   const editingId = productForm.dataset.editingId;
   const previousImagePath = productForm.dataset.currentImage || null;
+  const previousModelPath = productForm.dataset.currentModel || null;
   let imagePath = previousImagePath;
+  let modelPath = previousModelPath;
   let uploadedImagePath = null;
+  let uploadedModelPath = null;
 
   if (!editingId && (!imageFile || imageFile.size === 0)) {
     alert("Para guardar un producto tenes que cargar una imagen.");
@@ -1597,6 +1668,21 @@ productForm.addEventListener("submit", async (event) => {
     }
   }
 
+  if (modelFile && modelFile.size > 0) {
+    try {
+      uploadedModelPath = await uploadDashboardModel(modelFile, "products");
+      modelPath = uploadedModelPath;
+    } catch (error) {
+      if (uploadedImagePath) {
+        await deleteDashboardImage(uploadedImagePath);
+      }
+
+      alert(`No se pudo subir el modelo 3D: ${error.message}`);
+      console.error(error);
+      return;
+    }
+  }
+
   const payload = {
     name: formData.get("name"),
     brand_id: formData.get("brand") || null,
@@ -1605,6 +1691,7 @@ productForm.addEventListener("submit", async (event) => {
     price: Number(formData.get("price")),
     stock: Number(formData.get("stock")),
     image_path: imagePath,
+    model_path: modelPath,
     gradient_start: formData.get("gradient_start") || "#ff2da0",
     gradient_end: formData.get("gradient_end") || "#7b2cff",
     active: true
@@ -1619,6 +1706,9 @@ productForm.addEventListener("submit", async (event) => {
   if (error) {
     if (uploadedImagePath) {
       await deleteDashboardImage(uploadedImagePath);
+    }
+    if (uploadedModelPath) {
+      await deleteDashboardModel(uploadedModelPath);
     }
 
     alert(`No se pudo ${editingId ? "actualizar" : "guardar"} el producto: ${error.message}`);
@@ -1642,6 +1732,10 @@ productForm.addEventListener("submit", async (event) => {
 
   if (editingId && uploadedImagePath && previousImagePath && previousImagePath !== uploadedImagePath) {
     await deleteDashboardImage(previousImagePath);
+  }
+
+  if (editingId && uploadedModelPath && previousModelPath && previousModelPath !== uploadedModelPath) {
+    await deleteDashboardModel(previousModelPath);
   }
 
   resetProductForm();

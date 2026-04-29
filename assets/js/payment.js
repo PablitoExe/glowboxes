@@ -358,6 +358,15 @@ async function uploadTransferReceipt() {
   return path;
 }
 
+function buildServerOrderItems(checkout) {
+  return mergeCheckoutItems(checkout?.items || [])
+    .map(item => ({
+      productId: item.productId ? String(item.productId) : "",
+      quantity: Math.max(1, Number(item.quantity || 1))
+    }))
+    .filter(item => item.productId);
+}
+
 function renderEmptyState() {
   if (checkoutItemsContainer) {
     checkoutItemsContainer.innerHTML = `
@@ -451,6 +460,15 @@ async function persistOrder() {
     return { data: null, error: "Necesitas iniciar sesion para registrar el pedido." };
   }
 
+  const orderItems = buildServerOrderItems(currentCheckout);
+
+  if (!orderItems.length || orderItems.length !== mergeCheckoutItems(currentCheckout.items).length) {
+    return {
+      data: null,
+      error: "Hay productos del carrito que no tienen ID valido. Volve a agregarlos desde la tienda."
+    };
+  }
+
   let receiptPath = null;
 
   try {
@@ -459,67 +477,42 @@ async function persistOrder() {
     return { data: null, error: error.message };
   }
 
-  const totals = checkoutTotalsForMethod(currentCheckout);
+  const { data, error } = await window.GlowDB.client.functions.invoke("create-order", {
+    body: {
+      items: orderItems,
+      paymentMethod: activePaymentMethod,
+      shippingType: activeShippingType,
+      shippingCarrier: activeShippingCarrier,
+      receiptPath,
+      customerPhone: String(payerPhone?.value || "").trim() || null
+    }
+  });
 
-  const { data: order, error: orderError } = await window.GlowDB.client
-    .from("orders")
-    .insert({
-      user_id: currentProfile.id,
-      subtotal: totals.subtotal,
-      discount: totals.discount,
-      tax: totals.tax,
-      total: totals.total,
-      status: "pedido_recibido",
-      shipping_type: activeShippingType,
-      shipping_provider: activeShippingType === "correo" ? activeShippingCarrier : "manual",
-      shipping_carrier: activeShippingType === "correo" ? activeShippingCarrier : null,
-      shipping_status: "pending",
-      payment_method: activePaymentMethod,
-      payment_status: receiptPath ? "comprobante_cargado" : "pendiente",
-      payment_receipt_path: receiptPath,
-      customer_phone: String(payerPhone?.value || "").trim() || null
-    })
-    .select("id")
-    .single();
-
-  if (orderError) {
+  if (error || data?.error || !data?.order?.id) {
     if (receiptPath) {
       await window.GlowDB.client.storage
         .from("payment-receipts")
         .remove([receiptPath]);
     }
 
-    return { data: null, error: orderError.message };
+    let functionMessage = error?.message || data?.error || "No pudimos registrar el pedido.";
+
+    if (error?.context && typeof error.context.json === "function") {
+      try {
+        const errorBody = await error.context.json();
+        functionMessage = errorBody?.error || errorBody?.message || functionMessage;
+      } catch (parseError) {
+        console.error("No pudimos leer el detalle de create-order:", parseError);
+      }
+    }
+
+    return { data: null, error: functionMessage };
   }
-
-  const itemsPayload = mergeCheckoutItems(currentCheckout.items).map(item => ({
-    order_id: order.id,
-    product_id: item.productId || null,
-    quantity: Number(item.quantity || 0),
-    unit_price: Number(item.priceValue || 0)
-  }));
-
-  const { error: itemsError } = await window.GlowDB.client
-    .from("order_items")
-    .insert(itemsPayload);
-
-  if (itemsError) {
-    await window.GlowDB.client
-      .from("orders")
-      .delete()
-      .eq("id", order.id);
-
-    return { data: null, error: itemsError.message };
-  }
-
-  await window.GlowDB.client
-    .from("cart_items")
-    .delete()
-    .eq("user_id", currentProfile.id);
 
   window.sessionStorage.removeItem(checkoutStorageKey);
+  window.localStorage.removeItem(guestCartStorageKey);
   currentCheckout = null;
-  return { data: order, error: null };
+  return { data: data.order, error: null };
 }
 
 async function createMercadoPagoPreference(orderId) {

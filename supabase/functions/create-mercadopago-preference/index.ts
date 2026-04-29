@@ -24,15 +24,10 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function getOrigin(request: Request, bodyOrigin?: string) {
+function getOrigin(request: Request) {
   const siteUrl = Deno.env.get("SITE_URL") || "";
   if (siteUrl) {
     return siteUrl.replace(/\/$/, "");
-  }
-
-  const fromBody = String(bodyOrigin || "").trim();
-  if (fromBody.startsWith("http://") || fromBody.startsWith("https://")) {
-    return fromBody.replace(/\/$/, "");
   }
 
   const origin = request.headers.get("origin") || "";
@@ -83,7 +78,7 @@ Deno.serve(async (request) => {
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, user_id, total, tax, payment_method, customer_phone, shipping_type, shipping_carrier")
+    .select("id, user_id, total, tax, discount, payment_method, customer_phone, shipping_type, shipping_carrier")
     .eq("id", orderId)
     .single();
 
@@ -108,7 +103,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "El pedido no tiene productos para cobrar." }, 400);
   }
 
-  const origin = getOrigin(request, body.origin);
+  const origin = getOrigin(request);
 
   if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
     return jsonResponse({ error: "Falta configurar SITE_URL para crear las URLs de retorno de Mercado Pago." }, 500);
@@ -117,7 +112,7 @@ Deno.serve(async (request) => {
   const accountUrl = `${origin}/mi-cuenta.html`;
   const notificationUrl = Deno.env.get("MP_WEBHOOK_URL") || undefined;
   const isLocalReturnUrl = origin.includes("127.0.0.1") || origin.includes("localhost");
-  const mercadoPagoItems = (orderItems as OrderItem[]).map((item, index) => ({
+  let mercadoPagoItems = (orderItems as OrderItem[]).map((item, index) => ({
     id: `${orderId}-${index + 1}`,
     title: item.products?.name || `Producto ${index + 1}`,
     quantity: Number(item.quantity || 1),
@@ -125,8 +120,18 @@ Deno.serve(async (request) => {
     currency_id: "ARS"
   }));
   const paymentSurcharge = Number(order.tax || 0);
+  const discount = Number(order.discount || 0);
+  const orderTotal = Number(order.total || 0);
 
-  if (paymentSurcharge > 0) {
+  if (discount > 0) {
+    mercadoPagoItems = [{
+      id: orderId,
+      title: `Pedido Glow Boxes #${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
+      quantity: 1,
+      unit_price: orderTotal,
+      currency_id: "ARS"
+    }];
+  } else if (paymentSurcharge > 0) {
     mercadoPagoItems.push({
       id: `${orderId}-recargo`,
       title: "Recargo por pago con Mercado Pago",

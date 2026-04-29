@@ -85,6 +85,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: "$11.999",
       priceValue: 11999,
       img: "assets/img/producto3.png",
+      modelPath: "",
       tag: "LIMPIADOR",
       brand: "Glow Boxes",
       gradientStart: "#ff2da0",
@@ -98,6 +99,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: "$13.500",
       priceValue: 13500,
       img: "assets/img/producto1.png",
+      modelPath: "",
       tag: "SHAMPOO",
       brand: "Glow Boxes",
       gradientStart: "#ff2da0",
@@ -111,6 +113,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: "$9.999",
       priceValue: 9999,
       img: "assets/img/producto2.png",
+      modelPath: "",
       tag: "SHAMPOO",
       brand: "Glow Boxes",
       gradientStart: "#ff2da0",
@@ -128,6 +131,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const previewImg = document.getElementById("previewImg");
   const nextPreviewImg = document.getElementById("nextPreviewImg");
   const productStage = document.getElementById("productStage");
+  const productThreeViewer = document.getElementById("productThreeViewer");
   const tag = document.getElementById("tag");
 
   const current = document.getElementById("current");
@@ -186,6 +190,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: formatProductPrice(product.price),
       priceValue: Number(product.price || 0),
       img: normalizeAssetPath(product.image_path) || "assets/img/logo.png",
+      modelPath: normalizeAssetPath(product.model_path),
       tag: category.toUpperCase(),
       brand: product.brands?.name || "",
       gradientStart: product.gradient_start || "#ff2da0",
@@ -196,6 +201,239 @@ window.addEventListener("DOMContentLoaded", () => {
   function updatePageGradient(product) {
     document.body.style.setProperty("--hero-gradient-start", product.gradientStart || "#ff2da0");
     document.body.style.setProperty("--hero-gradient-end", product.gradientEnd || "#7b2cff");
+  }
+
+  function createProductThreeViewer(container) {
+    if (!container || typeof THREE === "undefined") {
+      return null;
+    }
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const loader = typeof THREE.GLTFLoader !== "undefined" ? new THREE.GLTFLoader() : null;
+    const group = new THREE.Group();
+    const clock = new THREE.Clock();
+    const pointer = { active: false, x: 0, rotation: 0 };
+
+    let activeModel = null;
+    let rafId = null;
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    container.appendChild(renderer.domElement);
+
+    camera.position.set(0, 0.12, 6.4);
+    scene.add(group);
+
+    const ambient = new THREE.HemisphereLight(0xffffff, 0x332266, 1.34);
+    const key = new THREE.DirectionalLight(0xffffff, 2.25);
+    const rim = new THREE.DirectionalLight(0xffe9ff, 1.42);
+    key.position.set(3.6, 4.2, 5.2);
+    rim.position.set(-4.5, 2.2, -2.8);
+    scene.add(ambient, key, rim);
+
+    function resize() {
+      const rect = container.getBoundingClientRect();
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    }
+
+    function disposeMaterial(material) {
+      Object.keys(material).forEach(key => {
+        const value = material[key];
+        if (value?.isTexture) {
+          value.dispose();
+        }
+      });
+      material.dispose();
+    }
+
+    function clearModel() {
+      if (!activeModel) return;
+
+      group.remove(activeModel);
+      activeModel.traverse?.(child => {
+        child.geometry?.dispose();
+
+        if (child.material) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach(disposeMaterial);
+        }
+      });
+      activeModel = null;
+    }
+
+    function createMaterial(color, roughness = 0.42, metalness = 0.08) {
+      return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    }
+
+    function createLabelTexture(product) {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      const start = product.gradientStart || "#ff2da0";
+      const end = product.gradientEnd || "#7b2cff";
+      canvas.width = 768;
+      canvas.height = 512;
+
+      const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, start);
+      gradient.addColorStop(1, end);
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      context.fillStyle = "rgba(255,255,255,0.93)";
+      if (typeof context.roundRect === "function") {
+        context.beginPath();
+        context.roundRect(46, 46, 676, 420, 34);
+        context.fill();
+      } else {
+        context.fillRect(46, 46, 676, 420);
+      }
+
+      context.fillStyle = "#1d1730";
+      context.textAlign = "center";
+      context.font = "800 58px Urbanist, Arial, sans-serif";
+      context.fillText(product.name || "Glow Boxes", 384, 168, 620);
+      context.font = "700 34px Urbanist, Arial, sans-serif";
+      context.fillStyle = "#ff2da0";
+      context.fillText(product.tag || "PRODUCTO", 384, 228, 620);
+      context.font = "800 72px Urbanist, Arial, sans-serif";
+      context.fillStyle = "#1d1730";
+      context.fillText("GLOW", 384, 336, 620);
+      context.font = "700 34px Urbanist, Arial, sans-serif";
+      context.fillText("BOXES", 384, 386, 620);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.encoding = THREE.sRGBEncoding;
+      return texture;
+    }
+
+    function createProceduralProduct(product) {
+      const root = new THREE.Group();
+      const bodyMaterial = createMaterial(product.gradientStart || "#ff2da0", 0.36, 0.12);
+      const capMaterial = createMaterial(product.gradientEnd || "#7b2cff", 0.28, 0.18);
+      const darkMaterial = createMaterial(0x17111f, 0.46, 0.18);
+      const glassMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.18,
+        transparent: true,
+        opacity: 0.2
+      });
+
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.88, 3.15, 56), bodyMaterial);
+      const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.82, 0.42, 56), capMaterial);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.54, 40), bodyMaterial);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.42, 40), darkMaterial);
+      const gloss = new THREE.Mesh(new THREE.CylinderGeometry(0.86, 0.91, 3.2, 56, 1, true), glassMaterial);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.34, 1.52),
+        new THREE.MeshStandardMaterial({
+          map: createLabelTexture(product),
+          roughness: 0.32,
+          metalness: 0.03,
+          transparent: true
+        })
+      );
+      const shadow = new THREE.Mesh(
+        new THREE.CircleGeometry(1.2, 56),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 })
+      );
+
+      body.position.y = -0.12;
+      shoulder.position.y = 1.66;
+      neck.position.y = 2.08;
+      cap.position.y = 2.55;
+      gloss.position.y = -0.12;
+      label.position.set(0, -0.2, 0.895);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.y = -1.86;
+
+      root.add(body, shoulder, neck, cap, gloss, label, shadow);
+      root.scale.setScalar(1.05);
+      return root;
+    }
+
+    function frameModel(model) {
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      model.position.sub(center);
+
+      const maxAxis = Math.max(size.x, size.y, size.z) || 1;
+      model.scale.setScalar(3.9 / maxAxis);
+      model.rotation.y = -0.24;
+    }
+
+    function setModel(model) {
+      clearModel();
+      activeModel = model;
+      group.add(activeModel);
+      frameModel(activeModel);
+      container.classList.add("is-ready");
+    }
+
+    function setProduct(product) {
+      if (!product) return;
+
+      container.classList.remove("is-ready");
+      window.setTimeout(() => {
+        if (product.modelPath && loader) {
+          loader.load(product.modelPath, gltf => setModel(gltf.scene), undefined, () => {
+            setModel(createProceduralProduct(product));
+          });
+          return;
+        }
+
+        setModel(createProceduralProduct(product));
+      }, 120);
+    }
+
+    function animate() {
+      const elapsed = clock.getElapsedTime();
+      if (activeModel) {
+        activeModel.rotation.y += 0.006;
+        activeModel.rotation.x = Math.sin(elapsed * 0.74) * 0.035;
+        activeModel.position.y = Math.sin(elapsed * 1.15) * 0.06;
+      }
+
+      renderer.render(scene, camera);
+      rafId = requestAnimationFrame(animate);
+    }
+
+    container.addEventListener("pointerdown", event => {
+      pointer.active = true;
+      pointer.x = event.clientX;
+      pointer.rotation = activeModel?.rotation.y || 0;
+      container.setPointerCapture?.(event.pointerId);
+    });
+
+    container.addEventListener("pointermove", event => {
+      if (!pointer.active || !activeModel) return;
+      const delta = (event.clientX - pointer.x) / Math.max(1, container.offsetWidth);
+      activeModel.rotation.y = pointer.rotation + delta * Math.PI * 2;
+    });
+
+    window.addEventListener("pointerup", () => {
+      pointer.active = false;
+    });
+
+    resize();
+    window.addEventListener("resize", resize);
+    animate();
+
+    return { setProduct };
+  }
+
+  const product3d = createProductThreeViewer(productThreeViewer);
+  if (product3d && productStage) {
+    productStage.classList.add("is-three-active");
   }
 
   function getTagWidth(value) {
@@ -402,6 +640,7 @@ window.addEventListener("DOMContentLoaded", () => {
     desc.textContent = p.desc;
     price.textContent = p.price;
     img.src = p.img;
+    product3d?.setProduct(p);
     updateTagText(p.tag);
     updatePageGradient(p);
     updateCounter(1);
@@ -464,6 +703,7 @@ window.addEventListener("DOMContentLoaded", () => {
       productStage.classList.add("is-resetting");
 
       img.src = p.img;
+      product3d?.setProduct(p);
       previewImg.src = upcomingPreview;
       nextPreviewImg.src = products[getPreviewIndex(2)].img;
       previewImg.classList.remove("from-left");

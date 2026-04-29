@@ -15,6 +15,8 @@
   <!-- ICONOS -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 
 <body class="is-preloading">
@@ -194,6 +196,7 @@
     <div class="glow"></div>
 
     <div class="product-stage" id="productStage">
+      <div class="product-three-viewer" id="productThreeViewer" aria-label="Vista 3D del producto"></div>
       <img id="productImg" class="product-img product-img-main" src="assets/img/producto3.png" alt="Producto seleccionado">
       <img id="previewImg" class="product-img product-img-preview" src="assets/img/producto1.png" alt="Siguiente producto">
       <img id="nextPreviewImg" class="product-img product-img-next-preview" src="assets/img/producto2.png" alt="Producto siguiente">
