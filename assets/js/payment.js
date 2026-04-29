@@ -21,6 +21,8 @@ const payerPhone = document.getElementById("payerPhone");
 const paymentCustomerName = document.getElementById("paymentCustomerName");
 const paymentCustomerMeta = document.getElementById("paymentCustomerMeta");
 const paymentLoginHint = document.getElementById("paymentLoginHint");
+const transferBankPanel = document.getElementById("transferBankPanel");
+const copyBankFeedback = document.getElementById("copyBankFeedback");
 const transferReceiptPanel = document.getElementById("transferReceiptPanel");
 const transferReceipt = document.getElementById("transferReceipt");
 const receiptFileLabel = document.getElementById("receiptFileLabel");
@@ -274,11 +276,49 @@ function renderMethodCopy() {
     paymentSubmit.textContent = method.buttonLabel;
   }
 
+  if (transferBankPanel) {
+    transferBankPanel.hidden = activePaymentMethod !== "transfer";
+  }
+
   if (transferReceiptPanel) {
     transferReceiptPanel.hidden = activePaymentMethod !== "transfer";
   }
 
   renderCheckout(currentCheckout);
+}
+
+async function copyTextToClipboard(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "readonly");
+  input.style.position = "fixed";
+  input.style.top = "-999px";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  return copied;
+}
+
+function showCopyFeedback(message, type = "success") {
+  if (!copyBankFeedback) return;
+
+  copyBankFeedback.textContent = message;
+  copyBankFeedback.className = `copy-bank-feedback is-${type}`;
+
+  window.clearTimeout(showCopyFeedback.timeoutId);
+  showCopyFeedback.timeoutId = window.setTimeout(() => {
+    copyBankFeedback.textContent = "";
+    copyBankFeedback.className = "copy-bank-feedback";
+  }, 2400);
 }
 
 function renderShippingType() {
@@ -623,6 +663,18 @@ transferReceipt?.addEventListener("change", () => {
   const file = transferReceipt.files?.[0];
   if (receiptFileLabel) {
     receiptFileLabel.textContent = file ? file.name : "Subir comprobante";
+  }
+});
+
+transferBankPanel?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-copy-value]");
+  if (!button) return;
+
+  try {
+    const copied = await copyTextToClipboard(button.dataset.copyValue);
+    showCopyFeedback(copied ? "Dato copiado." : "No se pudo copiar.", copied ? "success" : "warning");
+  } catch (error) {
+    showCopyFeedback("No se pudo copiar.", "warning");
   }
 });
 

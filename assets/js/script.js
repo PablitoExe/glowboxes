@@ -1,7 +1,7 @@
 ﻿// Espera a que cargue TODO
 window.addEventListener("DOMContentLoaded", () => {
 
-  console.log("JS OK 🔥");
+  console.log("JS OK");
 
   // =====================
   // ICONOS
@@ -1054,7 +1054,7 @@ window.addEventListener("DOMContentLoaded", () => {
     cartItemsContainer.innerHTML = "";
 
     if (cart.length === 0) {
-      cartItemsContainer.innerHTML = `<p class="empty">Tu carrito está vacío</p>`;
+      cartItemsContainer.innerHTML = `<p class="empty">Tu carrito esta vacio</p>`;
       cartTotal.textContent = "0";
       renderCartCount();
       return;
@@ -1078,7 +1078,7 @@ window.addEventListener("DOMContentLoaded", () => {
       removeButton.className = "remove";
       removeButton.type = "button";
       removeButton.dataset.cartRemove = item.key;
-      removeButton.textContent = "✕";
+      removeButton.textContent = "X";
 
       div.append(nameNode, priceNode, removeButton);
       cartItemsContainer.appendChild(div);

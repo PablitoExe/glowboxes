@@ -438,6 +438,225 @@ begin
 end;
 $$;
 
+create or replace function public.create_order_with_stock(
+  p_user_id uuid,
+  p_items jsonb,
+  p_payment_method text,
+  p_shipping_type text,
+  p_shipping_carrier text,
+  p_receipt_path text,
+  p_customer_phone text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  item record;
+  product_row record;
+  order_row public.orders%rowtype;
+  normalized_payment_method text := coalesce(nullif(trim(p_payment_method), ''), 'mercadopago');
+  normalized_shipping_type text := coalesce(nullif(trim(p_shipping_type), ''), 'delivery');
+  normalized_shipping_carrier text := coalesce(nullif(trim(p_shipping_carrier), ''), 'andreani');
+  subtotal_amount numeric(12, 2) := 0;
+  discount_amount numeric(12, 2) := 0;
+  tax_amount numeric(12, 2) := 0;
+  total_amount numeric(12, 2) := 0;
+  item_count integer := 0;
+begin
+  if p_user_id is null then
+    raise exception 'Necesitas iniciar sesion.';
+  end if;
+
+  if p_items is null or jsonb_typeof(p_items) <> 'array' then
+    raise exception 'El pedido no tiene productos validos.';
+  end if;
+
+  if normalized_payment_method not in ('mercadopago', 'transfer') then
+    raise exception 'Metodo de pago invalido.';
+  end if;
+
+  if normalized_shipping_type not in ('delivery', 'correo', 'retiro') then
+    raise exception 'Tipo de envio invalido.';
+  end if;
+
+  if normalized_shipping_type = 'correo'
+    and normalized_shipping_carrier not in ('andreani', 'correo') then
+    raise exception 'Correo invalido.';
+  end if;
+
+  if normalized_payment_method = 'transfer'
+    and nullif(trim(coalesce(p_receipt_path, '')), '') is null then
+    raise exception 'Subi el comprobante de transferencia para continuar.';
+  end if;
+
+  drop table if exists pg_temp.checkout_items;
+
+  create temporary table checkout_items (
+    product_id uuid primary key,
+    quantity integer not null check (quantity > 0)
+  ) on commit drop;
+
+  insert into checkout_items (product_id, quantity)
+  select product_id, sum(quantity)::integer
+  from jsonb_to_recordset(p_items) as item(product_id uuid, quantity integer)
+  where product_id is not null
+    and quantity is not null
+    and quantity > 0
+  group by product_id;
+
+  select count(*) into item_count from checkout_items;
+
+  if item_count = 0 then
+    raise exception 'El pedido no tiene productos validos.';
+  end if;
+
+  for item in
+    select product_id, quantity
+    from checkout_items
+    order by product_id
+  loop
+    update public.products
+    set stock = stock - item.quantity
+    where id = item.product_id
+      and active = true
+      and stock >= item.quantity
+    returning id, name, price, stock
+    into product_row;
+
+    if not found then
+      select name
+      into product_row
+      from public.products
+      where id = item.product_id;
+
+      raise exception 'No hay stock suficiente de %.',
+        coalesce(product_row.name, 'uno de los productos');
+    end if;
+
+    subtotal_amount := subtotal_amount + (product_row.price * item.quantity);
+
+    insert into public.stock_movements (
+      product_id,
+      movement_type,
+      quantity,
+      reason
+    ) values (
+      item.product_id,
+      'salida',
+      item.quantity,
+      'Pedido web'
+    );
+  end loop;
+
+  subtotal_amount := round(subtotal_amount, 2);
+  tax_amount := case
+    when normalized_payment_method = 'mercadopago'
+      then round((subtotal_amount - discount_amount) * 0.066, 2)
+    else 0
+  end;
+  total_amount := round(greatest(0, subtotal_amount - discount_amount + tax_amount), 2);
+
+  insert into public.orders (
+    user_id,
+    subtotal,
+    discount,
+    tax,
+    total,
+    status,
+    shipping_type,
+    shipping_provider,
+    shipping_carrier,
+    shipping_status,
+    payment_method,
+    payment_status,
+    payment_receipt_path,
+    customer_phone
+  ) values (
+    p_user_id,
+    subtotal_amount,
+    discount_amount,
+    tax_amount,
+    total_amount,
+    'pedido_recibido',
+    normalized_shipping_type,
+    case when normalized_shipping_type = 'correo' then normalized_shipping_carrier else 'manual' end,
+    case when normalized_shipping_type = 'correo' then normalized_shipping_carrier else null end,
+    'pending',
+    normalized_payment_method,
+    case when normalized_payment_method = 'transfer' then 'comprobante_cargado' else 'pendiente' end,
+    nullif(trim(coalesce(p_receipt_path, '')), ''),
+    nullif(trim(coalesce(p_customer_phone, '')), '')
+  )
+  returning *
+  into order_row;
+
+  insert into public.order_items (
+    order_id,
+    product_id,
+    quantity,
+    unit_price
+  )
+  select
+    order_row.id,
+    checkout_items.product_id,
+    checkout_items.quantity,
+    products.price
+  from checkout_items
+  join public.products on products.id = checkout_items.product_id;
+
+  delete from public.cart_items
+  where user_id = p_user_id;
+
+  return jsonb_build_object(
+    'order', jsonb_build_object(
+      'id', order_row.id,
+      'subtotal', order_row.subtotal,
+      'discount', order_row.discount,
+      'tax', order_row.tax,
+      'total', order_row.total
+    ),
+    'totals', jsonb_build_object(
+      'subtotal', subtotal_amount,
+      'discount', discount_amount,
+      'tax', tax_amount,
+      'total', total_amount
+    )
+  );
+end;
+$$;
+
+revoke all on function public.create_order_with_stock(
+  uuid,
+  jsonb,
+  text,
+  text,
+  text,
+  text,
+  text
+) from public;
+
+revoke execute on function public.create_order_with_stock(
+  uuid,
+  jsonb,
+  text,
+  text,
+  text,
+  text,
+  text
+) from anon, authenticated;
+
+grant execute on function public.create_order_with_stock(
+  uuid,
+  jsonb,
+  text,
+  text,
+  text,
+  text,
+  text
+) to service_role;
+
 drop trigger if exists record_order_status_history_insert on public.orders;
 create trigger record_order_status_history_insert
 after insert on public.orders
@@ -556,6 +775,48 @@ with check (public.is_admin());
 drop policy if exists "Dashboard can delete staff members" on public.staff_members;
 create policy "Dashboard can delete staff members"
 on public.staff_members for delete
+using (public.is_admin());
+
+drop policy if exists "Dashboard can read branches" on public.branches;
+create policy "Dashboard can read branches"
+on public.branches for select
+using (public.is_admin());
+
+drop policy if exists "Dashboard can insert branches" on public.branches;
+create policy "Dashboard can insert branches"
+on public.branches for insert
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can update branches" on public.branches;
+create policy "Dashboard can update branches"
+on public.branches for update
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can delete branches" on public.branches;
+create policy "Dashboard can delete branches"
+on public.branches for delete
+using (public.is_admin());
+
+drop policy if exists "Dashboard can read stock movements" on public.stock_movements;
+create policy "Dashboard can read stock movements"
+on public.stock_movements for select
+using (public.is_admin());
+
+drop policy if exists "Dashboard can insert stock movements" on public.stock_movements;
+create policy "Dashboard can insert stock movements"
+on public.stock_movements for insert
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can update stock movements" on public.stock_movements;
+create policy "Dashboard can update stock movements"
+on public.stock_movements for update
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Dashboard can delete stock movements" on public.stock_movements;
+create policy "Dashboard can delete stock movements"
+on public.stock_movements for delete
 using (public.is_admin());
 
 drop policy if exists "Admins can read profiles" on public.profiles;

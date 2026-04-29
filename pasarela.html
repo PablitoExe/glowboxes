@@ -129,6 +129,40 @@
           <div class="payment-method-hint" id="paymentMethodHint">Incluye un recargo de pago.</div>
         </article>
 
+        <article class="transfer-bank-panel" id="transferBankPanel" hidden>
+          <div class="transfer-bank-head">
+            <div>
+              <strong>Datos para transferir</strong>
+              <p>Usa estos datos y despues subi el comprobante.</p>
+            </div>
+          </div>
+
+          <div class="bank-data-list">
+            <div class="bank-data-row">
+              <span>Titular</span>
+              <strong>Pablo Joel Cuenca Jara</strong>
+            </div>
+
+            <div class="bank-data-row">
+              <span>Alias</span>
+              <strong>glowboxes.ar</strong>
+              <button class="copy-bank-data" type="button" data-copy-value="glowboxes.ar" aria-label="Copiar alias">
+                <i data-lucide="copy"></i>
+              </button>
+            </div>
+
+            <div class="bank-data-row">
+              <span>CVU</span>
+              <strong>0000003100063942768652</strong>
+              <button class="copy-bank-data" type="button" data-copy-value="0000003100063942768652" aria-label="Copiar CVU">
+                <i data-lucide="copy"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="copy-bank-feedback" id="copyBankFeedback" aria-live="polite"></div>
+        </article>
+
         <article class="transfer-receipt-panel" id="transferReceiptPanel" hidden>
           <div>
             <strong>Comprobante de transferencia</strong>

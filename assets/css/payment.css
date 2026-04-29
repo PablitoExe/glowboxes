@@ -441,6 +441,95 @@ button {
   border: 1px solid var(--line);
 }
 
+.transfer-bank-panel {
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(109, 255, 197, 0.07);
+  border: 1px solid rgba(109, 255, 197, 0.18);
+}
+
+.transfer-bank-panel[hidden] {
+  display: none;
+}
+
+.transfer-bank-head strong,
+.transfer-receipt-panel strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.transfer-bank-head p,
+.transfer-receipt-panel p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.bank-data-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.bank-data-row {
+  min-height: 58px;
+  padding: 12px 12px 12px 14px;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.bank-data-row:first-child {
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+
+.bank-data-row span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bank-data-row strong {
+  overflow-wrap: anywhere;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+
+.copy-bank-data {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 14px;
+  color: #101913;
+  background: linear-gradient(135deg, #6dffc5, #d8fff0);
+  cursor: pointer;
+}
+
+.copy-bank-data i {
+  width: 18px;
+  height: 18px;
+}
+
+.copy-bank-feedback {
+  min-height: 20px;
+  margin-top: 12px;
+  color: #6dffc5;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.copy-bank-feedback.is-warning {
+  color: var(--warning);
+}
+
 .transfer-receipt-panel {
   padding: 18px;
   display: grid;
@@ -454,17 +543,6 @@ button {
 
 .transfer-receipt-panel[hidden] {
   display: none;
-}
-
-.transfer-receipt-panel strong {
-  display: block;
-  font-size: 1rem;
-}
-
-.transfer-receipt-panel p {
-  margin: 7px 0 0;
-  color: var(--muted);
-  line-height: 1.55;
 }
 
 .receipt-upload {
@@ -725,6 +803,20 @@ button {
 
   .transfer-receipt-panel {
     grid-template-columns: 1fr;
+  }
+
+  .bank-data-row,
+  .bank-data-row:first-child {
+    grid-template-columns: 1fr 42px;
+  }
+
+  .bank-data-row span {
+    grid-column: 1 / -1;
+  }
+
+  .bank-data-row:first-child span,
+  .bank-data-row:first-child strong {
+    grid-column: 1 / -1;
   }
 
   .pay-button {

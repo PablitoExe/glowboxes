@@ -2,7 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-request-id, x-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -48,6 +49,77 @@ function notificationTypeFromPayload(url: URL, body: Record<string, unknown>) {
       url.searchParams.get("topic") ||
       "",
   ).trim();
+}
+
+function signaturePart(signature: string, key: string) {
+  return signature
+    .split(",")
+    .map((part) => part.trim().split("=", 2))
+    .find(([partKey]) => partKey === key)?.[1]?.trim() || "";
+}
+
+function dataIdForSignature(url: URL, body: Record<string, unknown>) {
+  const data = body.data && typeof body.data === "object"
+    ? body.data as Record<string, unknown>
+    : null;
+  const value = url.searchParams.get("data.id") ||
+    url.searchParams.get("id") ||
+    String(data?.id || body.id || "");
+
+  return String(value || "").trim().toLowerCase();
+}
+
+async function hmacSha256Hex(secret: string, value: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(value),
+  );
+
+  return [...new Uint8Array(signature)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+
+  let result = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    result |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  }
+
+  return result === 0;
+}
+
+async function verifyMercadoPagoSignature(
+  request: Request,
+  url: URL,
+  body: Record<string, unknown>,
+  secret: string,
+) {
+  const xSignature = request.headers.get("x-signature") || "";
+  const xRequestId = request.headers.get("x-request-id") || "";
+  const ts = signaturePart(xSignature, "ts");
+  const v1 = signaturePart(xSignature, "v1");
+  const dataId = dataIdForSignature(url, body);
+
+  if (!xSignature || !xRequestId || !ts || !v1 || !dataId) {
+    return false;
+  }
+
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const expected = await hmacSha256Hex(secret, manifest);
+
+  return timingSafeEqual(expected, v1.toLowerCase());
 }
 
 async function runPostPaymentTasks(
@@ -142,15 +214,21 @@ Deno.serve(async (request) => {
   }
 
   const accessToken = Deno.env.get("MP_ACCESS_TOKEN");
+  const webhookSecret = Deno.env.get("MP_WEBHOOK_SECRET");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!accessToken || !supabaseUrl || !serviceRoleKey) {
+  if (!accessToken || !webhookSecret || !supabaseUrl || !serviceRoleKey) {
     return jsonResponse({ error: "Faltan variables de entorno." }, 500);
   }
 
   const url = new URL(request.url);
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+
+  if (!await verifyMercadoPagoSignature(request, url, body, webhookSecret)) {
+    return jsonResponse({ error: "Firma de Mercado Pago invalida." }, 401);
+  }
+
   const notificationType = notificationTypeFromPayload(url, body);
 
   if (notificationType && notificationType !== "payment") {
@@ -190,7 +268,7 @@ Deno.serve(async (request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, payment_status")
+    .select("id, payment_status, status")
     .eq("id", orderId)
     .single();
 
@@ -204,10 +282,6 @@ Deno.serve(async (request) => {
     payment_status: nextPaymentStatus,
     updated_at: new Date().toISOString(),
   };
-
-  if (nextPaymentStatus === "aprobado") {
-    orderUpdate.status = "pedido_recibido";
-  }
 
   const { error: updateError } = await supabase
     .from("orders")

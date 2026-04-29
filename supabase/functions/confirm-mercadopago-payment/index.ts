@@ -114,10 +114,6 @@ Deno.serve(async (request) => {
     updated_at: new Date().toISOString(),
   };
 
-  if (nextPaymentStatus === "aprobado") {
-    orderUpdate.status = "pedido_recibido";
-  }
-
   const { error: updateError } = await supabase
     .from("orders")
     .update(orderUpdate)

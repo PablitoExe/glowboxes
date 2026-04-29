@@ -12,15 +12,6 @@ type CheckoutItemInput = {
   quantity?: unknown;
 };
 
-type ProductRow = {
-  id: string;
-  name: string;
-  price: number | string;
-  stock: number | null;
-  active: boolean;
-};
-
-const paymentSurchargeRate = 0.066;
 const allowedPaymentMethods = new Set(["mercadopago", "transfer"]);
 const allowedShippingTypes = new Set(["delivery", "correo", "retiro"]);
 const allowedCarriers = new Set(["andreani", "correo"]);
@@ -33,10 +24,6 @@ function jsonResponse(body: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
-}
-
-function roundMoney(value: number) {
-  return Math.round(Number(value || 0) * 100) / 100;
 }
 
 function normalizeQuantity(value: unknown) {
@@ -63,9 +50,35 @@ function normalizeItems(rawItems: unknown) {
   });
 
   return [...grouped.entries()].map(([productId, quantity]) => ({
-    productId,
+    product_id: productId,
     quantity,
   }));
+}
+
+async function receiptExists(
+  supabase: ReturnType<typeof createClient>,
+  receiptPath: string,
+) {
+  const parts = receiptPath.split("/").filter(Boolean);
+  const fileName = parts.pop();
+  const folder = parts.join("/");
+
+  if (!fileName || !folder) {
+    return false;
+  }
+
+  const { data, error } = await supabase.storage
+    .from("payment-receipts")
+    .list(folder, {
+      limit: 1,
+      search: fileName,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.some((item) => item.name === fileName));
 }
 
 Deno.serve(async (request) => {
@@ -139,113 +152,43 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Comprobante invalido." }, 403);
   }
 
-  const productIds = items.map((item) => item.productId);
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select("id, name, price, stock, active")
-    .in("id", productIds);
+  if (receiptPath) {
+    try {
+      const exists = await receiptExists(supabase, receiptPath);
 
-  if (productsError) {
-    return jsonResponse({ error: productsError.message }, 500);
-  }
-
-  const productsById = new Map(
-    ((products || []) as ProductRow[]).map((product) => [product.id, product]),
-  );
-
-  for (const item of items) {
-    const product = productsById.get(item.productId);
-
-    if (!product || !product.active) {
+      if (!exists) {
+        return jsonResponse(
+          { error: "No encontramos el comprobante de transferencia subido." },
+          400,
+        );
+      }
+    } catch (error) {
       return jsonResponse(
-        { error: "Uno de los productos ya no esta disponible." },
-        400,
-      );
-    }
-
-    const stock = Number(product.stock ?? 0);
-    if (Number.isFinite(stock) && stock >= 0 && item.quantity > stock) {
-      return jsonResponse(
-        { error: `No hay stock suficiente de ${product.name}.` },
-        400,
+        {
+          error: error instanceof Error
+            ? error.message
+            : "No pudimos validar el comprobante.",
+        },
+        500,
       );
     }
   }
 
-  const subtotal = roundMoney(items.reduce((sum, item) => {
-    const product = productsById.get(item.productId);
-    return sum + Number(product?.price || 0) * item.quantity;
-  }, 0));
-  const discount = 0;
-  const baseTax = 0;
-  const surcharge = paymentMethod === "mercadopago"
-    ? roundMoney((subtotal - discount + baseTax) * paymentSurchargeRate)
-    : 0;
-  const tax = roundMoney(baseTax + surcharge);
-  const total = roundMoney(Math.max(0, subtotal - discount + tax));
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      user_id: user.id,
-      subtotal,
-      discount,
-      tax,
-      total,
-      status: "pedido_recibido",
-      shipping_type: shippingType,
-      shipping_provider: shippingType === "correo" ? shippingCarrier : "manual",
-      shipping_carrier: shippingType === "correo" ? shippingCarrier : null,
-      shipping_status: "pending",
-      payment_method: paymentMethod,
-      payment_status: paymentMethod === "transfer"
-        ? "comprobante_cargado"
-        : "pendiente",
-      payment_receipt_path: receiptPath,
-      customer_phone: customerPhone,
-    })
-    .select("id, subtotal, discount, tax, total")
-    .single();
-
-  if (orderError || !order) {
-    return jsonResponse(
-      { error: orderError?.message || "No pudimos registrar el pedido." },
-      500,
-    );
-  }
-
-  const itemsPayload = items.map((item) => {
-    const product = productsById.get(item.productId);
-
-    return {
-      order_id: order.id,
-      product_id: item.productId,
-      quantity: item.quantity,
-      unit_price: Number(product?.price || 0),
-    };
+  const { data, error } = await supabase.rpc("create_order_with_stock", {
+    p_user_id: user.id,
+    p_items: items,
+    p_payment_method: paymentMethod,
+    p_shipping_type: shippingType,
+    p_shipping_carrier: shippingCarrier,
+    p_receipt_path: receiptPath,
+    p_customer_phone: customerPhone,
   });
 
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(itemsPayload);
-
-  if (itemsError) {
-    await supabase.from("orders").delete().eq("id", order.id);
-    return jsonResponse({ error: itemsError.message }, 500);
+  if (error || !data) {
+    return jsonResponse({
+      error: error?.message || "No pudimos registrar el pedido.",
+    }, 400);
   }
 
-  await supabase
-    .from("cart_items")
-    .delete()
-    .eq("user_id", user.id);
-
-  return jsonResponse({
-    order,
-    totals: {
-      subtotal,
-      discount,
-      tax,
-      total,
-    },
-  });
+  return jsonResponse(data);
 });

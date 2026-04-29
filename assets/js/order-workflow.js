@@ -3,7 +3,7 @@
     pedido_recibido: {
       label: "Pedido recibido",
       shortLabel: "Recibido",
-      icon: "✓",
+      icon: "OK",
       tone: "process",
       colorClass: "is-process",
       description: "Ya tenemos tu pedido en el sistema."
@@ -11,7 +11,7 @@
     preparando_pedido: {
       label: "Preparando pedido",
       shortLabel: "Preparando",
-      icon: "◷",
+      icon: "...",
       tone: "process",
       colorClass: "is-process",
       description: "El equipo esta armando tu compra."
@@ -19,7 +19,7 @@
     pedido_despachado: {
       label: "Pedido despachado",
       shortLabel: "Despachado",
-      icon: "▣",
+      icon: "BOX",
       tone: "route",
       colorClass: "is-route",
       description: "El pedido ya salio de preparacion."
@@ -27,7 +27,7 @@
     en_camino: {
       label: "En camino",
       shortLabel: "En camino",
-      icon: "↗",
+      icon: "GO",
       tone: "route",
       colorClass: "is-route",
       description: "Tu pedido esta viajando hacia la direccion indicada."
@@ -35,7 +35,7 @@
     en_sucursal: {
       label: "En sucursal",
       shortLabel: "En sucursal",
-      icon: "⌂",
+      icon: "LOC",
       tone: "route",
       colorClass: "is-route",
       description: "El pedido esta disponible en la sucursal."
@@ -43,7 +43,7 @@
     listo_para_retirar: {
       label: "Listo para retirar",
       shortLabel: "Retirar",
-      icon: "⌂",
+      icon: "LOC",
       tone: "route",
       colorClass: "is-route",
       description: "Podes pasar por el local a retirar tu compra."
@@ -51,7 +51,7 @@
     enviado_por_correo: {
       label: "Enviado por envios",
       shortLabel: "Envios",
-      icon: "✉",
+      icon: "SHIP",
       tone: "route",
       colorClass: "is-route",
       description: "El paquete fue entregado al servicio de envios."
@@ -59,7 +59,7 @@
     entregado_completado: {
       label: "Entregado / Completado",
       shortLabel: "Completado",
-      icon: "✓",
+      icon: "OK",
       tone: "done",
       colorClass: "is-done",
       description: "El pedido fue entregado y cerrado."
@@ -67,7 +67,7 @@
     cancelado: {
       label: "Cancelado",
       shortLabel: "Cancelado",
-      icon: "×",
+      icon: "X",
       tone: "danger",
       colorClass: "is-danger",
       description: "El pedido fue cancelado."
