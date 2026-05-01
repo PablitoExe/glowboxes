@@ -20,6 +20,7 @@ const staffSubmit = document.getElementById("staffSubmit");
 const cancelStaffEdit = document.getElementById("cancelStaffEdit");
 const productImageInput = document.getElementById("productImageInput");
 const productModelInput = document.getElementById("productModelInput");
+const productVideoInput = document.getElementById("productVideoInput");
 const productCostValue = document.getElementById("productCostValue");
 const productProfitValue = document.getElementById("productProfitValue");
 const productProfitHint = document.getElementById("productProfitHint");
@@ -252,6 +253,7 @@ async function fetchAdminProducts() {
       description,
       price,
       image_path,
+      product_video_path,
       model_path,
       stock,
       is_featured,
@@ -515,7 +517,7 @@ function productCardMarkup(product) {
         <div class="loaded-product-meta">
           <span>$${formatDashboardPrice(product.price)}</span>
           <span>Stock ${product.stock ?? 0}</span>
-          <span>${product.model_path ? "3D activo" : "3D automatico"}</span>
+          <span>${product.product_video_path ? "Video 3D activo" : product.model_path ? "3D activo" : "3D automatico"}</span>
         </div>
         <div class="loaded-product-gradient" style="--start: ${escapeHtml(product.gradient_start || "#ff2da0")}; --end: ${escapeHtml(product.gradient_end || "#7b2cff")};"></div>
         <div class="loaded-product-actions">
@@ -539,9 +541,10 @@ function resetProductForm() {
   productForm.dataset.editingId = "";
   productForm.dataset.currentImage = "";
   productForm.dataset.currentModel = "";
+  productForm.dataset.currentVideo = "";
   productSubmit.textContent = "Guardar producto";
   cancelProductEdit.hidden = true;
-  productImageInput.required = true;
+  productImageInput.required = false;
   if (productForm.elements.cost_price) {
     productForm.elements.cost_price.value = "";
   }
@@ -674,6 +677,34 @@ async function uploadDashboardModel(file, folder) {
   return data.publicUrl;
 }
 
+async function uploadDashboardVideo(file, folder) {
+  if (!window.GlowDB?.client || !file || file.size === 0) return null;
+
+  const safeName = file.name
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const filePath = `${folder}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await window.GlowDB.client.storage
+    .from("product-videos")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "video/webm"
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = window.GlowDB.client.storage
+    .from("product-videos")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
 function getStoragePathFromUrl(publicUrl) {
   if (!publicUrl || !window.GlowDB?.client) return null;
 
@@ -694,6 +725,20 @@ function getModelStoragePathFromUrl(publicUrl) {
   try {
     const url = new URL(publicUrl);
     const marker = "/storage/v1/object/public/product-models/";
+    const index = url.pathname.indexOf(marker);
+    if (index === -1) return null;
+    return decodeURIComponent(url.pathname.slice(index + marker.length));
+  } catch (error) {
+    return null;
+  }
+}
+
+function getVideoStoragePathFromUrl(publicUrl) {
+  if (!publicUrl || !window.GlowDB?.client) return null;
+
+  try {
+    const url = new URL(publicUrl);
+    const marker = "/storage/v1/object/public/product-videos/";
     const index = url.pathname.indexOf(marker);
     if (index === -1) return null;
     return decodeURIComponent(url.pathname.slice(index + marker.length));
@@ -727,6 +772,20 @@ async function deleteDashboardModel(publicUrl) {
 
   if (error) {
     console.error("No se pudo borrar modelo 3D de storage:", error);
+  }
+}
+
+async function deleteDashboardVideo(publicUrl) {
+  const storagePath = getVideoStoragePathFromUrl(publicUrl);
+  if (!storagePath || !window.GlowDB?.client) return;
+
+  const { error } = await window.GlowDB.client
+    .storage
+    .from("product-videos")
+    .remove([storagePath]);
+
+  if (error) {
+    console.error("No se pudo borrar video 3D de storage:", error);
   }
 }
 
@@ -1137,6 +1196,7 @@ function startProductEdit(productId) {
   productForm.dataset.editingId = product.id;
   productForm.dataset.currentImage = product.image_path || "";
   productForm.dataset.currentModel = product.model_path || "";
+  productForm.dataset.currentVideo = product.product_video_path || "";
   productForm.elements.name.value = product.name || "";
   productForm.elements.brand.value = product.brand_id || "";
   productForm.elements.category.value = product.category_id || "";
@@ -1245,6 +1305,10 @@ async function deleteProduct(productId) {
 
   if (product?.model_path) {
     await deleteDashboardModel(product.model_path);
+  }
+
+  if (product?.product_video_path) {
+    await deleteDashboardVideo(product.product_video_path);
   }
 
   if (productForm.dataset.editingId === productId) {
@@ -1644,20 +1708,29 @@ productForm.addEventListener("submit", async (event) => {
   const formData = new FormData(productForm);
   const imageFile = formData.get("image");
   const modelFile = formData.get("model");
+  const videoFile = formData.get("video");
   const editingId = productForm.dataset.editingId;
   const previousImagePath = productForm.dataset.currentImage || null;
   const previousModelPath = productForm.dataset.currentModel || null;
+  const previousVideoPath = productForm.dataset.currentVideo || null;
   let imagePath = previousImagePath;
   let modelPath = previousModelPath;
+  let videoPath = previousVideoPath;
   let uploadedImagePath = null;
   let uploadedModelPath = null;
+  let uploadedVideoPath = null;
 
-  if (!editingId && (!imageFile || imageFile.size === 0)) {
-    alert("Para guardar un producto tenes que cargar una imagen.");
+  const hasNewImage = Boolean(imageFile && imageFile.size > 0);
+  const hasNewVideo = Boolean(videoFile && videoFile.size > 0);
+  const hasExistingImage = Boolean(previousImagePath);
+  const hasExistingVideo = Boolean(previousVideoPath);
+
+  if (!hasNewImage && !hasNewVideo && !hasExistingImage && !hasExistingVideo) {
+    alert("Para guardar un producto tenes que cargar una imagen o un video 3D.");
     return;
   }
 
-  if (imageFile && imageFile.size > 0) {
+  if (hasNewImage) {
     try {
       uploadedImagePath = await uploadDashboardImage(imageFile, "products");
       imagePath = uploadedImagePath;
@@ -1683,6 +1756,24 @@ productForm.addEventListener("submit", async (event) => {
     }
   }
 
+  if (hasNewVideo) {
+    try {
+      uploadedVideoPath = await uploadDashboardVideo(videoFile, "products");
+      videoPath = uploadedVideoPath;
+    } catch (error) {
+      if (uploadedImagePath) {
+        await deleteDashboardImage(uploadedImagePath);
+      }
+      if (uploadedModelPath) {
+        await deleteDashboardModel(uploadedModelPath);
+      }
+
+      alert(`No se pudo subir el video 3D: ${error.message}`);
+      console.error(error);
+      return;
+    }
+  }
+
   const payload = {
     name: formData.get("name"),
     brand_id: formData.get("brand") || null,
@@ -1691,6 +1782,7 @@ productForm.addEventListener("submit", async (event) => {
     price: Number(formData.get("price")),
     stock: Number(formData.get("stock")),
     image_path: imagePath,
+    product_video_path: videoPath,
     model_path: modelPath,
     gradient_start: formData.get("gradient_start") || "#ff2da0",
     gradient_end: formData.get("gradient_end") || "#7b2cff",
@@ -1709,6 +1801,9 @@ productForm.addEventListener("submit", async (event) => {
     }
     if (uploadedModelPath) {
       await deleteDashboardModel(uploadedModelPath);
+    }
+    if (uploadedVideoPath) {
+      await deleteDashboardVideo(uploadedVideoPath);
     }
 
     alert(`No se pudo ${editingId ? "actualizar" : "guardar"} el producto: ${error.message}`);
@@ -1736,6 +1831,10 @@ productForm.addEventListener("submit", async (event) => {
 
   if (editingId && uploadedModelPath && previousModelPath && previousModelPath !== uploadedModelPath) {
     await deleteDashboardModel(previousModelPath);
+  }
+
+  if (editingId && uploadedVideoPath && previousVideoPath && previousVideoPath !== uploadedVideoPath) {
+    await deleteDashboardVideo(previousVideoPath);
   }
 
   resetProductForm();

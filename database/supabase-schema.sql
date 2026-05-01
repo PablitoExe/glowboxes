@@ -35,6 +35,7 @@ create table if not exists public.products (
   price numeric(12, 2) not null default 0,
   stock integer not null default 0,
   image_path text,
+  product_video_path text,
   model_path text,
   gradient_start text not null default '#ff2da0',
   gradient_end text not null default '#7b2cff',
@@ -48,6 +49,9 @@ create table if not exists public.product_financials (
   cost_price numeric(12, 2) not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.products
+add column if not exists product_video_path text;
 
 alter table public.products
 add column if not exists model_path text;
@@ -949,6 +953,10 @@ values ('product-models', 'product-models', true)
 on conflict (id) do update set public = true;
 
 insert into storage.buckets (id, name, public)
+values ('product-videos', 'product-videos', true)
+on conflict (id) do update set public = true;
+
+insert into storage.buckets (id, name, public)
 values ('payment-receipts', 'payment-receipts', false)
 on conflict (id) do update set public = false;
 
@@ -993,6 +1001,27 @@ drop policy if exists "Dashboard can delete product models" on storage.objects;
 create policy "Dashboard can delete product models"
 on storage.objects for delete
 using (bucket_id = 'product-models' and public.is_admin());
+
+drop policy if exists "Public can read product videos" on storage.objects;
+create policy "Public can read product videos"
+on storage.objects for select
+using (bucket_id = 'product-videos');
+
+drop policy if exists "Dashboard can upload product videos" on storage.objects;
+create policy "Dashboard can upload product videos"
+on storage.objects for insert
+with check (bucket_id = 'product-videos' and public.is_admin());
+
+drop policy if exists "Dashboard can update product videos" on storage.objects;
+create policy "Dashboard can update product videos"
+on storage.objects for update
+using (bucket_id = 'product-videos' and public.is_admin())
+with check (bucket_id = 'product-videos' and public.is_admin());
+
+drop policy if exists "Dashboard can delete product videos" on storage.objects;
+create policy "Dashboard can delete product videos"
+on storage.objects for delete
+using (bucket_id = 'product-videos' and public.is_admin());
 
 drop policy if exists "Users can upload payment receipts" on storage.objects;
 create policy "Users can upload payment receipts"

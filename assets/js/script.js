@@ -85,6 +85,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: "$11.999",
       priceValue: 11999,
       img: "assets/img/producto3.png",
+      videoPath: "",
       modelPath: "",
       tag: "LIMPIADOR",
       brand: "Glow Boxes",
@@ -99,6 +100,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: "$13.500",
       priceValue: 13500,
       img: "assets/img/producto1.png",
+      videoPath: "",
       modelPath: "",
       tag: "SHAMPOO",
       brand: "Glow Boxes",
@@ -113,6 +115,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: "$9.999",
       priceValue: 9999,
       img: "assets/img/producto2.png",
+      videoPath: "",
       modelPath: "",
       tag: "SHAMPOO",
       brand: "Glow Boxes",
@@ -128,6 +131,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const desc = document.getElementById("desc");
   const price = document.getElementById("price");
   const img = document.getElementById("productImg");
+  const productVideo = document.getElementById("productVideo");
+  const productVideoCanvas = document.getElementById("productVideoCanvas");
   const previewImg = document.getElementById("previewImg");
   const nextPreviewImg = document.getElementById("nextPreviewImg");
   const productStage = document.getElementById("productStage");
@@ -190,6 +195,7 @@ window.addEventListener("DOMContentLoaded", () => {
       price: formatProductPrice(product.price),
       priceValue: Number(product.price || 0),
       img: normalizeAssetPath(product.image_path) || "assets/img/logo.png",
+      videoPath: normalizeAssetPath(product.product_video_path),
       modelPath: normalizeAssetPath(product.model_path),
       tag: category.toUpperCase(),
       brand: product.brands?.name || "",
@@ -596,6 +602,127 @@ window.addEventListener("DOMContentLoaded", () => {
     current.classList.add(animationClass);
   }
 
+  function createVideoChromaKey(video, canvas, stage) {
+    if (!video || !canvas || !stage) return null;
+
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return null;
+
+    let rafId = null;
+    let active = false;
+    let failed = false;
+
+    function stop() {
+      active = false;
+      failed = false;
+      stage.classList.remove("is-chroma-active");
+
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
+      context.clearRect(0, 0, canvas.width || 1, canvas.height || 1);
+    }
+
+    function resizeCanvas() {
+      const sourceWidth = video.videoWidth || 640;
+      const sourceHeight = video.videoHeight || 640;
+      const scale = Math.min(1, 720 / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+    }
+
+    function removeGreenScreen(frame) {
+      const data = frame.data;
+
+      for (let index = 0; index < data.length; index += 4) {
+        const red = data[index];
+        const green = data[index + 1];
+        const blue = data[index + 2];
+        const greenDominance = green - Math.max(red, blue);
+        const isGreenScreen = green > 80 && greenDominance > 28;
+
+        if (isGreenScreen) {
+          const softness = Math.min(1, Math.max(0, (greenDominance - 28) / 72));
+          data[index + 3] = Math.round(data[index + 3] * (1 - softness));
+        }
+      }
+    }
+
+    function drawFrame() {
+      if (!active || failed) return;
+
+      if (video.readyState >= 2) {
+        try {
+          resizeCanvas();
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+          removeGreenScreen(frame);
+          context.putImageData(frame, 0, 0);
+          stage.classList.add("is-chroma-active");
+        } catch (error) {
+          failed = true;
+          stage.classList.remove("is-chroma-active");
+          return;
+        }
+      }
+
+      if (typeof video.requestVideoFrameCallback === "function") {
+        video.requestVideoFrameCallback(() => {
+          rafId = requestAnimationFrame(drawFrame);
+        });
+        return;
+      }
+
+      rafId = requestAnimationFrame(drawFrame);
+    }
+
+    function start() {
+      stop();
+      active = true;
+      drawFrame();
+    }
+
+    return { start, stop };
+  }
+
+  const productChromaKey = createVideoChromaKey(productVideo, productVideoCanvas, productStage);
+
+  function setProductMedia(product) {
+    const nextVideo = product?.videoPath || "";
+
+    img.src = product?.img || "assets/img/logo.png";
+    productStage?.classList.toggle("is-video-active", Boolean(nextVideo));
+    productChromaKey?.stop();
+
+    if (!productVideo) return;
+
+    if (!nextVideo) {
+      productVideo.pause();
+      productVideo.removeAttribute("src");
+      productVideo.load();
+      return;
+    }
+
+    productVideo.crossOrigin = "anonymous";
+
+    if (productVideo.src !== nextVideo) {
+      productVideo.src = nextVideo;
+    }
+
+    productVideo.play()
+      .then(() => productChromaKey?.start())
+      .catch(() => {
+        productStage?.classList.remove("is-chroma-active");
+      });
+  }
+
   async function loadProductsFromSupabase() {
     if (!window.GlowDB?.isConfigured) {
       updateSliderTotal();
@@ -639,7 +766,7 @@ window.addEventListener("DOMContentLoaded", () => {
     title.innerHTML = p.title;
     desc.textContent = p.desc;
     price.textContent = p.price;
-    img.src = p.img;
+    setProductMedia(p);
     product3d?.setProduct(p);
     updateTagText(p.tag);
     updatePageGradient(p);
@@ -702,7 +829,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       productStage.classList.add("is-resetting");
 
-      img.src = p.img;
+      setProductMedia(p);
       product3d?.setProduct(p);
       previewImg.src = upcomingPreview;
       nextPreviewImg.src = products[getPreviewIndex(2)].img;
